@@ -343,15 +343,23 @@ ENDPROC(ftrace_stub)
  */
 	.align	5
 ENTRY(vector_swi)
+	/* 内核栈向下移动pt_regs */
 	sub	sp, sp, #S_FRAME_SIZE
+	/* 保存swi软中断前的r0-r12到内核栈pt_regs */
 	stmia	sp, {r0 - r12}			@ Calling r0 - r12
+	/* r8=内核栈pt_regs中pc的位置 */
  ARM(	add	r8, sp, #S_PC		)
+ 	/* 保存swi软中断前的r13和r14到内核栈pt_regs */
  ARM(	stmdb	r8, {sp, lr}^		)	@ Calling sp, lr
  THUMB(	mov	r8, sp			)
  THUMB(	store_user_sp_lr r8, r10, S_SP	)	@ calling sp, lr
+ 	/* r8=软中断前的cpsr */
 	mrs	r8, spsr			@ called from non-FIQ mode, so ok.
+	/* 保存swi软中断前的r15到内核栈pt_regs */
 	str	lr, [sp, #S_PC]			@ Save calling PC
+	/* 保存swi软中断前的cpsr到内核栈pt_regs */
 	str	r8, [sp, #S_PSR]		@ Save CPSR
+	/* 保存swi软中断前的r0的一份副本到内核栈pt_regs */
 	str	r0, [sp, #S_OLD_R0]		@ Save OLD_R0
 	zero_fp
 
@@ -368,10 +376,12 @@ ENTRY(vector_swi)
 #ifdef CONFIG_ARM_THUMB
 	tst	r8, #PSR_T_BIT
 	movne	r10, #0				@ no thumb OABI emulation
+	/* 获取swi指令地址,低24位是软中断号 */
 	ldreq	r10, [lr, #-4]			@ get SWI instruction
 #else
 	ldr	r10, [lr, #-4]			@ get SWI instruction
 #endif
+
 #ifdef CONFIG_CPU_ENDIAN_BE8
 	rev	r10, r10			@ little endian instruction
 #endif
@@ -397,9 +407,10 @@ ENTRY(vector_swi)
 	ldr	ip, [ip]
 	mcr	p15, 0, ip, c1, c0		@ update control register
 #endif
-	enable_irq
 
-	get_thread_info tsk
+	enable_irq		//开irq
+	get_thread_info tsk		//tsk=thread_info的地址
+	/* 将sys_call_table地址加载到tbl中，在本文件定义 */
 	adr	tbl, sys_call_table		@ load syscall table pointer
 
 #if defined(CONFIG_OABI_COMPAT)
@@ -409,8 +420,11 @@ ENTRY(vector_swi)
 	 * If this is an old ABI call, get the syscall number into scno and
 	 * get the old ABI syscall table address.
 	 */
-	bics	r10, r10, #0xff000000
-	eorne	scno, r10, #__NR_OABI_SYSCALL_BASE
+	bics	r10, r10, #0xff000000	//获取软中断号，为0是新的eabi规范
+	/* 如果软中断号不为0则执行下面两句，
+     * 很明显使用的是eabi规范，软中断号会为0，因为下面的CONFIG_AEABI定义了
+	 */
+	eorne	scno, r10, #__NR_OABI_SYSCALL_BASE	 
 	ldrne	tbl, =sys_oabi_call_table
 #elif !defined(CONFIG_AEABI)
 	bic	scno, scno, #0xff000000		@ mask off SWI op-code
