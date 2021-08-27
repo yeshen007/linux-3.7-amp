@@ -420,11 +420,10 @@ ENTRY(vector_swi)
 	 * If this is an old ABI call, get the syscall number into scno and
 	 * get the old ABI syscall table address.
 	 */
-	bics	r10, r10, #0xff000000	//获取软中断号，为0是新的eabi规范
-	/* 如果软中断号不为0则执行下面两句，
-     * 很明显使用的是eabi规范，软中断号会为0，因为下面的CONFIG_AEABI定义了
-	 */
-	eorne	scno, r10, #__NR_OABI_SYSCALL_BASE	 
+	bics	r10, r10, #0xff000000	//获取软中断号即swi指定低24位
+	/* 如果软中断号不为0则将软中断号异或__NR_OABI_SYSCALL_BASE得到新的软中断号 */
+	eorne	scno, r10, #__NR_OABI_SYSCALL_BASE	
+	/* 如果软中断号不为0则tbl=sys_oabi_call_table */
 	ldrne	tbl, =sys_oabi_call_table
 #elif !defined(CONFIG_AEABI)
 	bic	scno, scno, #0xff000000		@ mask off SWI op-code
