@@ -61,11 +61,12 @@ int arch_show_interrupts(struct seq_file *p, int prec)
  * own 'handler'.  Used by platform code implementing C-based 1st
  * level decoding.
  */
+ /* irq通用层处理 */
 void handle_IRQ(unsigned int irq, struct pt_regs *regs)
 {
 	struct pt_regs *old_regs = set_irq_regs(regs);
 
-	irq_enter();	/* 增加preempt count HARDOFF，禁止抢占 */
+	irq_enter();	/* 增加preempt count HARDOFF，禁止内核抢占 */
 
 	/*
 	 * Some hardware gives randomly wrong interrupts.  Rather

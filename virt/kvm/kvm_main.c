@@ -1,13 +1,3 @@
-file_system_type
-
-super_block
-
-file/file_operations
-
-inode/inode_operations
-
-dentry
-
 
 
 

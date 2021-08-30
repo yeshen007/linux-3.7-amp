@@ -106,9 +106,14 @@ static inline struct msi_desc *irq_desc_get_msi_desc(struct irq_desc *desc)
  * irqchip-style controller then we call the ->handle_irq() handler,
  * and it calls __do_IRQ() if it's attached to an irqtype-style controller.
  */
+/* 调用流控层函数，
+* 对于amp来说sgi和spi调用的是handle_fasteoi_irq，ppi调用的是handle_percpu_devid_irq,
+* 对于smp来说spi调用的是handle_fasteoi_irq，ppi调用的是handle_percpu_devid_irq，
+* 而sgi不会跑到这里，在上文说过。
+*/
 static inline void generic_handle_irq_desc(unsigned int irq, struct irq_desc *desc)
 {
-	desc->handle_irq(irq, desc);
+	desc->handle_irq(irq, desc);	
 }
 
 int generic_handle_irq(unsigned int irq);

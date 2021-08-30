@@ -308,11 +308,11 @@ static int irq_expand_nr_irqs(unsigned int nr)
  */
 int generic_handle_irq(unsigned int irq)
 {
-	struct irq_desc *desc = irq_to_desc(irq);
+	struct irq_desc *desc = irq_to_desc(irq);	//获取虚拟中断号对应的irq_desc
 
 	if (!desc)
 		return -EINVAL;
-	generic_handle_irq_desc(irq, desc);
+	generic_handle_irq_desc(irq, desc);		/* 流控层 */
 	return 0;
 }
 EXPORT_SYMBOL_GPL(generic_handle_irq);

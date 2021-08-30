@@ -38,10 +38,10 @@
  	/* c语言irq处理入口irq_handler */
 	.macro	irq_handler
 #ifdef CONFIG_MULTI_IRQ_HANDLER
-	ldr	r1, =handle_arch_irq	//实际就是gic_handle_irq
+	ldr	r1, =handle_arch_irq	//在start_kernel的setup_arch中设置为gic_handle_irq
 	mov	r0, sp
 	adr	lr, BSYM(9997f)
-	ldr	pc, [r1]
+	ldr	pc, [r1]			//调用gic_handle_irq
 #else
 	arch_irq_handler_default
 #endif

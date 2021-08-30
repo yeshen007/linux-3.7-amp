@@ -634,18 +634,18 @@ static int do_signal(struct pt_regs *regs, int syscall)
 	return restart;
 }
 
-/* */
+/* 如果有进程调度或者信号或者回调 */
 asmlinkage int
 do_work_pending(struct pt_regs *regs, unsigned int thread_flags, int syscall)
 {
 	do {
-		if (likely(thread_flags & _TIF_NEED_RESCHED)) {
+		if (likely(thread_flags & _TIF_NEED_RESCHED)) {	  /* 如果有进程调度 */
 			schedule();
 		} else {
 			if (unlikely(!user_mode(regs)))
 				return 0;
 			local_irq_enable();
-			if (thread_flags & _TIF_SIGPENDING) {
+			if (thread_flags & _TIF_SIGPENDING) {		/* 如果有代处理信号 */
 				int restart = do_signal(regs, syscall);
 				if (unlikely(restart)) {
 					/*
@@ -657,7 +657,7 @@ do_work_pending(struct pt_regs *regs, unsigned int thread_flags, int syscall)
 				}
 				syscall = 0;
 			} else {
-				clear_thread_flag(TIF_NOTIFY_RESUME);
+				clear_thread_flag(TIF_NOTIFY_RESUME);	/* 如果有回调 */
 				tracehook_notify_resume(regs);
 			}
 		}

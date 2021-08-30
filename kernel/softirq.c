@@ -220,7 +220,7 @@ asmlinkage void __do_softirq(void)
 	 */
 	current->flags &= ~PF_MEMALLOC;
 
-	pending = local_softirq_pending();
+	pending = local_softirq_pending();	//读取本地cpu的软中断状态
 	vtime_account(current);
 
 	__local_bh_disable((unsigned long)__builtin_return_address(0),
@@ -230,12 +230,13 @@ asmlinkage void __do_softirq(void)
 	cpu = smp_processor_id();
 restart:
 	/* Reset the pending bitmask before enabling irqs */
-	set_softirq_pending(0);
+	set_softirq_pending(0);		//清除本地cpu的软中断状态
 
-	local_irq_enable();
+	local_irq_enable();		//开本地cpu中断，因此硬中断可以打断软中断流程
 
-	h = softirq_vec;
+	h = softirq_vec;	//所有cpu共享的软中断处理描述符数组
 
+	/* 调用pending中每个置位的软中断例程 */
 	do {
 		if (pending & 1) {
 			unsigned int vec_nr = h - softirq_vec;
@@ -261,12 +262,14 @@ restart:
 		pending >>= 1;
 	} while (pending);
 
-	local_irq_disable();
+	local_irq_disable();	//关闭本地cpu中断
 
-	pending = local_softirq_pending();
+	pending = local_softirq_pending();	//重新读取本地cpu的软中断状态
+	
+	/* 如果重新发生了软中断并且max_restart减一后还大于0则继续处理软中断 */
 	if (pending && --max_restart)
 		goto restart;
-
+	/* 如果max_restart减一后小于0则使用唤醒内核软中断线程来处理 */
 	if (pending)
 		wakeup_softirqd();
 
@@ -322,9 +325,9 @@ void irq_enter(void)
 
 static inline void invoke_softirq(void)
 {
-	if (!force_irqthreads) {
+	if (!force_irqthreads) {	/* 如果不是强制中断线程化系统 */
 #ifdef __ARCH_IRQ_EXIT_IRQS_DISABLED
-		__do_softirq();
+		__do_softirq();		//
 #else
 		do_softirq();
 #endif
@@ -343,7 +346,11 @@ void irq_exit(void)
 {
 	vtime_account(current);
 	trace_hardirq_exit();
+	/* 减少preempt count计数 */
 	sub_preempt_count(IRQ_EXIT_OFFSET);	/* sub preempt count */
+	/* 减少preempt count后看是否已经不在中断(包括硬中断、软中断、nmi中断)上下文，
+     * 并且同时当前cpu的软中断是否有代处理，如果有就处理软中断
+	 */
 	if (!in_interrupt() && local_softirq_pending())
 		invoke_softirq();
 

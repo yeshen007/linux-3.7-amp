@@ -432,6 +432,7 @@ ENTRY(vector_swi)
 
 /*  */
 local_restart:
+	/* 获取thread_info的flags */
 	ldr	r10, [tsk, #TI_FLAGS]		@ check for syscall tracing
 	stmdb	sp!, {r4, r5}			@ push fifth and sixth args
 
@@ -445,11 +446,13 @@ local_restart:
 1:
 #endif
 
+	/* 系统调用追踪分支 */
 	tst	r10, #_TIF_SYSCALL_WORK		@ are we tracing syscalls?
 	bne	__sys_trace
 
 	cmp	scno, #NR_syscalls		@ check upper syscall limit
 	adr	lr, BSYM(ret_fast_syscall)	@ return address
+	/* 真正的对应系统调用号的系统调用例程 */
 	ldrcc	pc, [tbl, scno, lsl #2]		@ call sys_* routine
 
 	add	r1, sp, #S_OFF
