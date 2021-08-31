@@ -90,6 +90,11 @@ void chrdev_show(struct seq_file *f, off_t offset)
  *
  * Returns a -ve errno on failure.
  */
+ /*
+  * 根据主设备号散列一个值N，尝试将新的char_device_struct挂入chrdevs[i]
+  * 如果chrdevs[i]没有成员或者没有主设备号同为N的成员则可以挂入chrdevs[i]
+  * chrdevs[i]按递增排序
+  */
 static struct char_device_struct *
 __register_chrdev_region(unsigned int major, unsigned int baseminor,
 			   int minorct, const char *name)
@@ -98,6 +103,7 @@ __register_chrdev_region(unsigned int major, unsigned int baseminor,
 	int ret = 0;
 	int i;
 
+	/* 分配一个char_device_struct */
 	cd = kzalloc(sizeof(struct char_device_struct), GFP_KERNEL);
 	if (cd == NULL)
 		return ERR_PTR(-ENOMEM);
@@ -129,16 +135,15 @@ __register_chrdev_region(unsigned int major, unsigned int baseminor,
 	cd->minorct = minorct;
 	strlcpy(cd->name, name, sizeof(cd->name));
 
-	i = major_to_index(major);	//通过主设备号得到chrdevs的索引，主设备号相同的cd都放在chrdevs数组相同索引的链表中
+	i = major_to_index(major);	//通过主设备号得到chrdevs的索引
 
-	/* 从chrdevs数组中找出合适的项， */
+	/*从chrdevs[i]中找出合适的项，然后将cd插入到该项的后面
+	 *	找到的chrdevs[i]的主设备号大于major 或
+	 *	       chrdevs[i]的主设备号等于major 且 
+	 *          chrdevs[i]的次设备号大于等于baseminor 或 
+	 * 		     chrdevs[i]的次设备号加chrdevs[i]的次设备号个数大于baseminor
+	 */
 	for (cp = &chrdevs[i]; *cp; cp = &(*cp)->next)
-		/*
-		 *	找到的chrdevs[i]的主设备号大于major
-		 *	或 ( chrdevs[i]的主设备号等于major 且 
-		 *      (chrdevs[i]的次设备号大于等于baseminor 或 )
-		 * 		)
-		 */
 		if ((*cp)->major > major ||		
 		    ((*cp)->major == major &&
 		     (((*cp)->baseminor >= baseminor) ||
@@ -165,7 +170,7 @@ __register_chrdev_region(unsigned int major, unsigned int baseminor,
 		}
 	}
 
-
+	/* 将新分配的cd插到 */
 	cd->next = *cp;
 	*cp = cd;
 	mutex_unlock(&chrdevs_lock);
@@ -208,15 +213,18 @@ __unregister_chrdev_region(unsigned major, unsigned baseminor, int minorct)
 int register_chrdev_region(dev_t from, unsigned count, const char *name)
 {
 	struct char_device_struct *cd;
-	dev_t to = from + count;
+	dev_t to = from + count;	//最后一个设备号
 	dev_t n, next;	
 
 	for (n = from; n < to; n = next) {
-		next = MKDEV(MAJOR(n)+1, 0);
-		if (next > to)	//
+		/* 本轮注册的最后一个设备号+1，因此next-n就是本轮要注册的区域 */
+		next = MKDEV(MAJOR(n)+1, 0);	
+		if (next > to)					
 			next = to;
+		/* 注册本轮设备号区域 */
 		cd = __register_chrdev_region(MAJOR(n), MINOR(n),
 			       next - n, name);
+		/* 如果本轮注册设备号区域出错，则到fail处撤回之前注册的区域 */
 		if (IS_ERR(cd))
 			goto fail;
 	}
@@ -488,6 +496,9 @@ int cdev_add(struct cdev *p, dev_t dev, unsigned count)
 	p->dev = dev;
 	p->count = count;
 
+	/* 和分配设备号的原理差不多
+     * 将
+	 */
 	error = kobj_map(cdev_map, dev, count, NULL,
 			 exact_match, exact_lock, p);
 	if (error)

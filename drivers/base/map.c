@@ -29,23 +29,25 @@ struct kobj_map {
 	struct mutex *lock;
 };
 
+/* 将 */
 int kobj_map(struct kobj_map *domain, dev_t dev, unsigned long range,
 	     struct module *module, kobj_probe_t *probe,
 	     int (*lock)(dev_t, void *), void *data)
 {
-	unsigned n = MAJOR(dev + range - 1) - MAJOR(dev) + 1;
-	unsigned index = MAJOR(dev);
+	unsigned n = MAJOR(dev + range - 1) - MAJOR(dev) + 1;	//
+	unsigned index = MAJOR(dev);	//主设备号,散列表的索引就是index % 255
 	unsigned i;
 	struct probe *p;
 
 	if (n > 255)
 		n = 255;
-
+	
+	/* 分配n个struct probe */
 	p = kmalloc(sizeof(struct probe) * n, GFP_KERNEL);
-
 	if (p == NULL)
 		return -ENOMEM;
-
+	
+	/* 给struct probe赋值 */
 	for (i = 0; i < n; i++, p++) {
 		p->owner = module;
 		p->get = probe;
@@ -55,6 +57,7 @@ int kobj_map(struct kobj_map *domain, dev_t dev, unsigned long range,
 		p->data = data;
 	}
 	mutex_lock(domain->lock);
+	/* 插入probes散列表 */
 	for (i = 0, p -= n; i < n; i++, p++, index++) {
 		struct probe **s = &domain->probes[index % 255];
 		while (*s && (*s)->range < range)

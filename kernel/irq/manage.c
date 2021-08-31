@@ -839,13 +839,14 @@ static int irq_thread(void *data)
 					&action->thread_flags))
 		handler_fn = irq_forced_thread_fn;
 	else
-		handler_fn = irq_thread_fn;
+		handler_fn = irq_thread_fn;	//
 
 	sched_setscheduler(current, SCHED_FIFO, &param);
 
 	init_task_work(&on_exit_work, irq_thread_dtor);
 	task_work_add(current, &on_exit_work, false);
 
+	/*  */
 	while (!irq_wait_for_interrupt(action)) {
 		irqreturn_t action_ret;
 

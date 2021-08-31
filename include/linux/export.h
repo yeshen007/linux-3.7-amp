@@ -16,6 +16,9 @@
 #define MODULE_SYMBOL_PREFIX ""
 #endif
 
+/* 内核符号表中的元素
+ * 使用EXPORT_SYMBOL或者亲戚导出才会出现在内核符号表中
+ */
 struct kernel_symbol
 {
 	unsigned long value;

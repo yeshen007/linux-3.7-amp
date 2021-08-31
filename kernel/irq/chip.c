@@ -351,6 +351,9 @@ static void cond_unmask_irq(struct irq_desc *desc)
 	 *   spurious interrupt or a primary handler handling it
 	 *   completely).
 	 */
+	 /* 当该desc的所有action的thread_fn执行完时desc->threads_oneshot == 0
+      * 然后才可以umask_irq
+	  */
 	if (!irqd_irq_disabled(&desc->irq_data) &&
 	    irqd_irq_masked(&desc->irq_data) && !desc->threads_oneshot)
 		unmask_irq(desc);
@@ -449,7 +452,12 @@ handle_fasteoi_irq(unsigned int irq, struct irq_desc *desc)
 	preflow_handler(desc);
 	handle_irq_event(desc);		//处理硬中断核心
 
-	/* 如果irq状态包含IRQS_ONESHOT则打开该中断，因为前面屏蔽了 */
+	/* 如果irq状态包含IRQS_ONESHOT则看条件是否成立再打开该中断；
+     * 关键条件是desc->threads_oneshot == 0，表示该desc的所有action的thread_fn都执行完；
+     * 如果是普通非线程化的中断不需要mask_irq和unmask_irq，因为hanle_irq_event返回时硬中断处理已经完毕，
+     * 这个阶段整个cpu的irq都是屏蔽的，因此不需要mask_irq和unmask_irq，但是线程化的中断需要mask_irq和unmask_irq，
+     * 因为handle_irq_event返回不代表线程执行了
+	 */
 	if (desc->istate & IRQS_ONESHOT)
 		cond_unmask_irq(desc);
 
