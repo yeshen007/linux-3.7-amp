@@ -303,7 +303,10 @@ static DECLARE_WORK(delayed_fput_work, delayed_fput);
 
 void fput(struct file *file)
 {
-	if (atomic_long_dec_and_test(&file->f_count)) {
+	/* f_count减1，
+	 * 如果减1后等于0则执行_fput，否则直接返回
+	 */
+	if (atomic_long_dec_and_test(&file->f_count)) {	  
 		struct task_struct *task = current;
 		file_sb_list_del(file);
 		if (unlikely(in_interrupt() || task->flags & PF_KTHREAD)) {
@@ -314,6 +317,7 @@ void fput(struct file *file)
 			spin_unlock_irqrestore(&delayed_fput_lock, flags);
 			return;
 		}
+		/* 调用_fput，执行release，释放file */
 		init_task_work(&file->f_u.fu_rcuhead, ____fput);
 		task_work_add(task, &file->f_u.fu_rcuhead, true);
 	}

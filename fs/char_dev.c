@@ -386,6 +386,12 @@ void cdev_put(struct cdev *p)
 /*
  * Called every time a character special file is opened
  */
+ /* 
+  * 引导到注册的file operations中的open
+  * 首先从cdev_map中找到注册进内核的cdev
+  * 然后将cdev的file_operations给file，将cdev给inode->i_cdev
+  * 最后调用file_operations的open(如果实现了话)
+  */
 static int chrdev_open(struct inode *inode, struct file *filp)
 {
 	struct cdev *p;

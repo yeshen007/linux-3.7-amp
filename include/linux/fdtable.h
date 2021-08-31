@@ -48,8 +48,8 @@ struct files_struct {
    * read mostly part
    */
 	atomic_t count;
-	struct fdtable __rcu *fdt;
-	struct fdtable fdtab;		//动态打开文件描述符数组
+	struct fdtable __rcu *fdt;	//动态打开文件描述符数组
+	struct fdtable fdtab;		
   /*
    * written part on a separate cache line in SMP
    */

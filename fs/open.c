@@ -908,6 +908,7 @@ struct file *file_open_root(struct dentry *dentry, struct vfsmount *mnt,
 }
 EXPORT_SYMBOL(file_open_root);
 
+/* open系统调用核心 */
 long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 {
 	struct open_flags op;
@@ -916,15 +917,21 @@ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 	int fd = PTR_ERR(tmp);
 
 	if (!IS_ERR(tmp)) {
-		fd = get_unused_fd_flags(flags);
+		/* 分配一个当前进程的文件描述符 */
+		fd = get_unused_fd_flags(flags);	
 		if (fd >= 0) {
+			/* 查找filename对应的inode，分配设置struct file
+             * 对于设备节点文件，会将file->f_OP = inode->i_fop,然后调用file->f_OP->open
+             * 因此对应字符设备节点就是chrdev_open
+			 */
 			struct file *f = do_filp_open(dfd, tmp, &op, lookup);
 			if (IS_ERR(f)) {
 				put_unused_fd(fd);
 				fd = PTR_ERR(f);
 			} else {
 				fsnotify_open(f);
-				fd_install(fd, f);
+				/* 安装struct file到进程文件表文件描述符对应的位置 */
+				fd_install(fd, f);	
 			}
 		}
 		putname(tmp);
@@ -982,11 +989,13 @@ int filp_close(struct file *filp, fl_owner_t id)
 {
 	int retval = 0;
 
+	/* 如果f_count已经为0，则直接返回 */
 	if (!file_count(filp)) {
 		printk(KERN_ERR "VFS: Close: file count is 0\n");
 		return 0;
 	}
 
+	/* 如果设备驱动程序定义了flush，那么在release调用前先调用flush */
 	if (filp->f_op && filp->f_op->flush)
 		retval = filp->f_op->flush(filp, id);
 
@@ -994,6 +1003,8 @@ int filp_close(struct file *filp, fl_owner_t id)
 		dnotify_flush(filp, id);
 		locks_remove_posix(filp, id);
 	}
+
+	/*  */
 	fput(filp);
 	return retval;
 }
