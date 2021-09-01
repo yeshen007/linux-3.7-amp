@@ -34,7 +34,7 @@
  * the least significant 16 bits to be 0x8000, but we could probably
  * relax this restriction to KERNEL_RAM_VADDR >= PAGE_OFFSET + 0x4000.
  */
- /* 内核镜像中的text段起始的虚拟地址（内核镜像的起始就是.text段） */
+ /* 内核镜像中的text段起始的虚拟地址(内核镜像的起始就是.text段) */
 #define KERNEL_RAM_VADDR	(PAGE_OFFSET + TEXT_OFFSET)
 #if (KERNEL_RAM_VADDR & 0xffff) != 0x8000
 #error KERNEL_RAM_VADDR must start at 0xXXXX8000
@@ -53,6 +53,9 @@
 	.globl	swapper_pg_dir
 	.equ	swapper_pg_dir, KERNEL_RAM_VADDR - PG_DIR_SIZE
 
+	/* 计算一级页表
+     * TEXT_OFFSET是内核镜像在ddr中相对ddr的偏移 
+	 */
 	.macro	pgtbl, rd, phys
 	add	\rd, \phys, #TEXT_OFFSET - PG_DIR_SIZE
 	.endm
@@ -146,9 +149,9 @@ ENTRY(stext)
 	 * turned on, and r0 will hold the CPU control register value.
 	 */
 	/* 以下代码直到开启mmu跳转到__mmap_switched的虚拟地址处运行之前都是位置无关码 */
-	ldr	r13, =__mmap_switched		@ address to jump to after	@ 当mmu被使能后跳转的地址，同时设定栈指针
-						@ mmu has been enabled
-	adr	lr, BSYM(1f)			@ return (PIC) address
+	/* 保存当mmu被使能后跳转的虚拟地址 */
+	ldr	r13, =__mmap_switched		@ address to jump to after mmu has been enabled
+	adr	lr, BSYM(1f)				@ return (PIC) address
 	 /* r8 = 页表的物理地址 */
 	mov	r8, r4				
  ARM(	add	pc, r10, #PROCINFO_INITFUNC	)	// 设置 TTBR1 to swapper_pg_dir

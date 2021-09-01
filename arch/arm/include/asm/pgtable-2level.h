@@ -49,7 +49,7 @@
  * PMD_xxx definitions refer to bits in the first level page table.
  *
  * The "dirty" bit is emulated by only granting hardware write permission
- * iff the page is marked "writable" and "dirty" in the Linux PTE.  This
+ * if the page is marked "writable" and "dirty" in the Linux PTE.  This
  * means that a write to a clean page will cause a permission fault, and
  * the Linux MM layer will mark the page dirty via handle_pte_fault().
  * For the hardware to notice the permission change, the TLB entry must
