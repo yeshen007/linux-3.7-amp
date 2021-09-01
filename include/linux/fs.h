@@ -786,7 +786,7 @@ struct file {
 	atomic_long_t		f_count;
 	unsigned int 		f_flags;
 	fmode_t			f_mode;
-	loff_t			f_pos;
+	loff_t			f_pos;				//位置
 	struct fown_struct	f_owner;
 	const struct cred	*f_cred;
 	struct file_ra_state	f_ra;
