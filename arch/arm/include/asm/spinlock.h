@@ -71,11 +71,19 @@ static inline void dsb_sev(void)
 
 #define arch_spin_lock_flags(lock, flags) arch_spin_lock(lock)
 
+/* 等号牌 - next,只能由lock来更新,加1.
+ * 叫号牌 - owner,只能由unlock来更新,加1.
+ * 第一步获得等号牌、叫号牌和更新下一个等号牌，
+ * 通过先读取共享lock保存到自己lockval副本中，将next域加1写回lock，
+ * 如果写回不成功重新读取lock重新next域加1写回lock直到成功为止
+ * 第二步看自己拿到的等号牌是否等于叫号牌，如果等于则退出执行代码，
+ * 如果不等于则睡眠等其他人unlock后更新叫号牌再看自己的等号牌是否等于叫号牌
+ */
 static inline void arch_spin_lock(arch_spinlock_t *lock)
 {
 	unsigned long tmp;
 	u32 newval;
-	arch_spinlock_t lockval;
+	arch_spinlock_t lockval;	
 
 	__asm__ __volatile__(
 "1:	ldrex	%0, [%3]\n"
@@ -87,8 +95,12 @@ static inline void arch_spin_lock(arch_spinlock_t *lock)
 	: "r" (&lock->slock), "I" (1 << TICKET_SHIFT)
 	: "cc");
 
+	/* 如果自己获得的等号牌不等于叫号牌则睡眠
+     * 如果相等则退出执行代码
+	 */
 	while (lockval.tickets.next != lockval.tickets.owner) {
 		wfe();
+		/* 更新叫号牌 */
 		lockval.tickets.owner = ACCESS_ONCE(lock->tickets.owner);
 	}
 

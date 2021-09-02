@@ -137,7 +137,7 @@ static inline void smp_mb__after_lock(void) { smp_mb(); }
 static inline void do_raw_spin_lock(raw_spinlock_t *lock) __acquires(lock)
 {
 	__acquire(lock);
-	arch_spin_lock(&lock->raw_lock);
+	arch_spin_lock(&lock->raw_lock);	//
 }
 
 static inline void
