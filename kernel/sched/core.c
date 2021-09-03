@@ -2824,7 +2824,7 @@ need_resched:
 	cpu = smp_processor_id();
 	rq = cpu_rq(cpu);
 	rcu_note_context_switch(cpu);
-	prev = rq->curr;
+	prev = rq->curr;	//当前cpu上运行的进程，就是现在的我
 
 	schedule_debug(prev);
 
@@ -2838,6 +2838,7 @@ need_resched:
 		if (unlikely(signal_pending_state(prev->state, prev))) {
 			prev->state = TASK_RUNNING;
 		} else {
+			/* 如果满足当前进程被换出的条件则将它从红黑树移出 */
 			deactivate_task(rq, prev, DEQUEUE_SLEEP);
 			prev->on_rq = 0;
 
@@ -2862,8 +2863,8 @@ need_resched:
 	if (unlikely(!rq->nr_running))
 		idle_balance(cpu, rq);
 
-	put_prev_task(rq, prev);
-	next = pick_next_task(rq);
+	put_prev_task(rq, prev);	//更新当前进程的vruntime
+	next = pick_next_task(rq);	//
 	clear_tsk_need_resched(prev);
 	rq->skip_clock_update = 0;
 
