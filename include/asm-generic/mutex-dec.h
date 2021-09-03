@@ -20,6 +20,10 @@
 static inline void
 __mutex_fastpath_lock(atomic_t *count, void (*fail_fn)(atomic_t *))
 {
+	/* 如果count原子减1后小于0则运行fail_fn(count)
+	 * 所以atomic_dec_return之前count可能为0也可能小于0
+	 * 然后调用fail_fn()的count已经是原子减一之后
+	 */
 	if (unlikely(atomic_dec_return(count) < 0))
 		fail_fn(count);
 }

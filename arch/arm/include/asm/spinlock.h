@@ -178,7 +178,7 @@ static inline void arch_write_lock(arch_rwlock_t *rw)
 	__asm__ __volatile__(
 "1:	ldrex	%0, [%1]\n"
 "	teq	%0, #0\n"
-	WFE("ne")
+	WFE("ne")	//表示如果ne则睡眠，直到有解锁唤醒，省电
 "	strexeq	%0, %2, [%1]\n"
 "	teq	%0, #0\n"
 "	bne	1b"
@@ -241,13 +241,17 @@ static inline void arch_read_lock(arch_rwlock_t *rw)
 {
 	unsigned long tmp, tmp2;
 
+	/* pl表示N==0,mi表示N==1 */
 	__asm__ __volatile__(
 "1:	ldrex	%0, [%2]\n"
 "	adds	%0, %0, #1\n"
-"	strexpl	%1, %0, [%2]\n"
-	WFE("mi")
-"	rsbpls	%0, %1, #0\n"
-"	bmi	1b"
+"	strexpl	%1, %0, [%2]\n"	//如果N==0则将tmp写回rw然后跳过WFE到rsbpls，如果N为1则到WFE
+	//如果N==1则睡眠，直到被写锁或者读锁释放唤醒，无论被什么锁释放都会直接跳到bmi
+	//如果被读锁释放唤醒则bmi 1b会执行重新ldrex
+	//如果被写锁释放唤醒则bmi 1b不会执行，获得锁退出执行临界区代码
+	WFE("mi")				
+"	rsbpls	%0, %1, #0\n"	//如果N==0则%0 = #0 - %1
+"	bmi	1b"					//rsb结果为0说明strex成功，为负数说明不成功继续返回重新ldrex
 	: "=&r" (tmp), "=&r" (tmp2)
 	: "r" (&rw->lock)
 	: "cc");
@@ -255,6 +259,7 @@ static inline void arch_read_lock(arch_rwlock_t *rw)
 	smp_mb();
 }
 
+/* 将rw减一，但是可能有多个读者，因此需要ldrex和strex来原子更新 */
 static inline void arch_read_unlock(arch_rwlock_t *rw)
 {
 	unsigned long tmp, tmp2;

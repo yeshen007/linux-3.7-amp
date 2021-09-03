@@ -112,6 +112,9 @@ static inline int atomic_sub_return(int i, atomic_t *v)
 	return result;
 }
 
+/* 如果ptr中的值等于old则将new写入ptr成为新值返回ptr的旧值其实也是old
+ * 如果ptr中的值不等于old则直接返回ptr的值，但是不更新它
+ */
 static inline int atomic_cmpxchg(atomic_t *ptr, int old, int new)
 {
 	unsigned long oldval, res;
@@ -120,10 +123,10 @@ static inline int atomic_cmpxchg(atomic_t *ptr, int old, int new)
 
 	do {
 		__asm__ __volatile__("@ atomic_cmpxchg\n"
-		"ldrex	%1, [%3]\n"
-		"mov	%0, #0\n"
-		"teq	%1, %4\n"
-		"strexeq %0, %5, [%3]\n"
+		"ldrex	%1, [%3]\n"	//ldrex oldval, ptr->counter
+		"mov	%0, #0\n"	//mov res, 0
+		"teq	%1, %4\n"	//teq oldval, old
+		"strexeq %0, %5, [%3]\n"	//strexeq res, new, ptr->counter
 		    : "=&r" (res), "=&r" (oldval), "+Qo" (ptr->counter)
 		    : "r" (&ptr->counter), "Ir" (old), "r" (new)
 		    : "cc");

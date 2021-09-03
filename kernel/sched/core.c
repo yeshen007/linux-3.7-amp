@@ -1497,6 +1497,7 @@ out:
  */
 int wake_up_process(struct task_struct *p)
 {
+	/* 将进程p设置为可运行状态并重新放回运行队列 */
 	return try_to_wake_up(p, TASK_ALL, 0);
 }
 EXPORT_SYMBOL(wake_up_process);
@@ -2931,6 +2932,9 @@ asmlinkage void __sched schedule_user(void)
  *
  * Returns with preemption disabled. Note: preempt_count must be 1
  */
+ /* 意思是调用它的人是preempt disabled的，所以它schedule之前
+  * 先preempt enable在schedule之后恢复preempt disabled
+  */
 void __sched schedule_preempt_disabled(void)
 {
 	sched_preempt_enable_no_resched();
@@ -2940,8 +2944,13 @@ void __sched schedule_preempt_disabled(void)
 
 #ifdef CONFIG_MUTEX_SPIN_ON_OWNER
 
+/* 
+ * 返回0表示锁被释放或者锁没释放但锁持有者被调度出去了
+ * 返回1表示锁没释放并且锁持有者在运行队列
+ */
 static inline bool owner_running(struct mutex *lock, struct task_struct *owner)
 {
+	/* 如果lock->owner !=   owner了则说明lock->owner == NULL，锁被释放了 */
 	if (lock->owner != owner)
 		return false;
 
@@ -2953,23 +2962,30 @@ static inline bool owner_running(struct mutex *lock, struct task_struct *owner)
 	 */
 	barrier();
 
-	return owner->on_cpu;
+	/* 如果lock->owner   == owner != NULL,则返回owner是否在运行队列 */
+	return owner->on_cpu;	
 }
 
 /*
  * Look out! "owner" is an entirely speculative pointer
  * access and not reliable.
  */
+ /* 
+  * 返回0表示锁还没被释放，可能是等到了need_resched也可能是锁持有者被切换出去了
+  * 返回1表示锁被释放了，但是可能是need_resched也可能不是
+  */
 int mutex_spin_on_owner(struct mutex *lock, struct task_struct *owner)
 {
 	if (!sched_feat(OWNER_SPIN))
 		return 0;
 
 	rcu_read_lock();
+	/* 如果锁没释放并且锁持有者在运行队列 */
 	while (owner_running(lock, owner)) {
+		/* 如果当前进程需要被切换出去则跳出循环 */
 		if (need_resched())
 			break;
-
+		
 		arch_mutex_cpu_relax();
 	}
 	rcu_read_unlock();
@@ -2978,6 +2994,9 @@ int mutex_spin_on_owner(struct mutex *lock, struct task_struct *owner)
 	 * We break out the loop above on need_resched() and when the
 	 * owner changed, which is a sign for heavy contention. Return
 	 * success only when lock->owner is NULL.
+	 */
+	 /* 如果lock->owner == NULL返回1表示锁被释放了可以自旋，此时可能need_resched也可能不是
+	  * 如果lock->owner != NULL返回0表示锁还没被释放
 	 */
 	return lock->owner == NULL;
 }

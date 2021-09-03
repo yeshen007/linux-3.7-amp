@@ -82,13 +82,13 @@ __mutex_lock_slowpath(atomic_t *lock_count);
  */
 void __sched mutex_lock(struct mutex *lock)
 {
-	might_sleep();
+	might_sleep();	//没有定义CONFIG_PREEMPT_VOLUNTARY，所以函数为空
 	/*
 	 * The locking fastpath is the 1->0 transition from
 	 * 'unlocked' into 'locked' state.
 	 */
 	__mutex_fastpath_lock(&lock->count, __mutex_lock_slowpath);
-	mutex_set_owner(lock);
+	mutex_set_owner(lock);	//在成功获得锁后设置lock->owner为持锁进程
 }
 
 EXPORT_SYMBOL(mutex_lock);
@@ -167,12 +167,20 @@ __mutex_lock_common(struct mutex *lock, long state, unsigned int subclass,
 		 * release the lock or go to sleep.
 		 */
 		owner = ACCESS_ONCE(lock->owner);
+		/* 如果锁没被释放并且等到了need_resched锁还没被释放或者
+		 * 锁持有者被切换出去了则退出自旋进入进程调度切换 
+		 * 当锁持有者释放锁时会设置lock->owner为NULL
+		 */
 		if (owner && !mutex_spin_on_owner(lock, owner))
 			break;
 
+		/* 上一步没break说明锁被释放了，但此时可能到need_resched了也可能没到
+		 * 无论如何先尝试atomic_cmpxchg操作，如果成功说明锁被释放后成功获得	
+		 * 设置lock->owner为自己然后退出函数
+		 */
 		if (atomic_cmpxchg(&lock->count, 1, 0) == 1) {
 			lock_acquired(&lock->dep_map, ip);
-			mutex_set_owner(lock);
+			mutex_set_owner(lock);	
 			preempt_enable();
 			return 0;
 		}
@@ -183,6 +191,10 @@ __mutex_lock_common(struct mutex *lock, long state, unsigned int subclass,
 		 * we're an RT task that will live-lock because we won't let
 		 * the owner complete.
 		 */
+		 /* 如果上一步不成功说明有其他人也在争用锁并且争不过
+		  * 如果锁被释放了但是当前进程需要被调度出去那么也要退出自旋进入进程调度切换
+		  * 否则进入下一轮循环
+		  */
 		if (!owner && (need_resched() || rt_task(task)))
 			break;
 
@@ -201,14 +213,21 @@ __mutex_lock_common(struct mutex *lock, long state, unsigned int subclass,
 	debug_mutex_add_waiter(lock, &waiter, task_thread_info(task));
 
 	/* add waiting tasks to the end of the waitqueue (FIFO): */
+	/* 将waiter加入等待队列 */
 	list_add_tail(&waiter.list, &lock->wait_list);
-	waiter.task = task;
+	waiter.task = task;		
 
+	/* 将lock->count写入-1表示有等待者，同时查看返回的旧值，
+	 * 如果为1，说明其他人已经释放锁了，则到done处撤销waiter
+	 * 并再次查看等待队列有没有人，如果没有设置count为0，
+	 * 如果有则设置count为1
+	 */
 	if (atomic_xchg(&lock->count, -1) == 1)
 		goto done;
 
 	lock_contended(&lock->dep_map, ip);
 
+	/* 到这里说明没锁成功，再次尝试锁住，如果锁不住只能让出cpu睡眠了 */
 	for (;;) {
 		/*
 		 * Lets try to take the lock again - this is needed even if
@@ -240,7 +259,7 @@ __mutex_lock_common(struct mutex *lock, long state, unsigned int subclass,
 
 		/* didn't get the lock, go to sleep: */
 		spin_unlock_mutex(&lock->wait_lock, flags);
-		schedule_preempt_disabled();
+		schedule_preempt_disabled();	//睡眠让出cpu
 		spin_lock_mutex(&lock->wait_lock, flags);
 	}
 
@@ -319,7 +338,7 @@ __mutex_unlock_common_slowpath(atomic_t *lock_count, int nested)
 	 * unlock it here
 	 */
 	if (__mutex_slowpath_needs_to_unlock())
-		atomic_set(&lock->count, 1);
+		atomic_set(&lock->count, 1);	//释放锁，设置count为1
 
 	if (!list_empty(&lock->wait_list)) {
 		/* get the first entry from the wait-list: */
@@ -399,7 +418,12 @@ static __used noinline void __sched
 __mutex_lock_slowpath(atomic_t *lock_count)
 {
 	struct mutex *lock = container_of(lock_count, struct mutex, count);
-
+	/* 和down函数原理差不多，只不过会在真正将进程放进等待队列前会
+     * 先自旋询问count是否为1，如果为1就不睡了，如果不符合自旋条件则睡眠
+     * 因为大家认为互斥锁不想信号量是多方一起用，而是两个人用，
+     * 因此它的被占用时间相对较短，所以先轮询一段时间，这段时间对方释放的
+     * 概率比较大，因此不睡的概率也大，相对于信号量机制怎么都要睡优化了
+	 */
 	__mutex_lock_common(lock, TASK_UNINTERRUPTIBLE, 0, NULL, _RET_IP_);
 }
 

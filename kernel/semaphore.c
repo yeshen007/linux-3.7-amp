@@ -79,9 +79,9 @@ int down_interruptible(struct semaphore *sem)
 
 	raw_spin_lock_irqsave(&sem->lock, flags);
 	if (likely(sem->count > 0))
-		sem->count--;
+		sem->count--;	//获得自旋锁后如果count大于0说明还有信号量
 	else
-		result = __down_interruptible(sem);
+		result = __down_interruptible(sem);	//否则没有了需要挂起进程，挂起进程前会先释放锁
 	raw_spin_unlock_irqrestore(&sem->lock, flags);
 
 	return result;
@@ -181,9 +181,9 @@ void up(struct semaphore *sem)
 
 	raw_spin_lock_irqsave(&sem->lock, flags);
 	if (likely(list_empty(&sem->wait_list)))
-		sem->count++;
+		sem->count++;	//如果没有进程在sem中等待睡眠则++然后退出
 	else
-		__up(sem);
+		__up(sem);		//如果有进程在sem中睡眠则不需要++，因此被up的进程在down中也不用--
 	raw_spin_unlock_irqrestore(&sem->lock, flags);
 }
 EXPORT_SYMBOL(up);
@@ -205,21 +205,29 @@ static inline int __sched __down_common(struct semaphore *sem, long state,
 								long timeout)
 {
 	struct task_struct *task = current;
-	struct semaphore_waiter waiter;
+	struct semaphore_waiter waiter;		
 
+	/* 将当前进程放入sem队列wait_list中 */
 	list_add_tail(&waiter.list, &sem->wait_list);
 	waiter.task = task;
 	waiter.up = 0;
 
 	for (;;) {
+		/* 有信号或者睡眠时间到则退出并将当前进程移出sem队列并返回异常值 */
 		if (signal_pending_state(state, task))
 			goto interrupted;
 		if (timeout <= 0)
 			goto timed_out;
-		__set_task_state(task, state);
-		raw_spin_unlock_irq(&sem->lock);
-		timeout = schedule_timeout(timeout);
-		raw_spin_lock_irq(&sem->lock);
+		
+		__set_task_state(task, state);		//设置进程状态
+		raw_spin_unlock_irq(&sem->lock);	//让出cpu前需要将sem->lock解锁，否则其他信号量申请者就一直自旋
+		timeout = schedule_timeout(timeout);	//让出cpu，从运行队列移出
+		raw_spin_lock_irq(&sem->lock);		//进程重新夺取cpu，重新恢复sem->lock锁住状态
+
+		/* 如果是被信号量获得者up醒的则退出执行临界区代码，否则继续for循环
+		 * 屏幕前的你可能和当年的我有同样一个疑问，既然被up醒获得信号量不是该把sem->count--吗？
+		 * 因为up()中对于没有等待获得信号量而睡眠进程的情况也不用++
+		 */
 		if (waiter.up)
 			return 0;
 	}
@@ -240,6 +248,7 @@ static noinline void __sched __down(struct semaphore *sem)
 
 static noinline int __sched __down_interruptible(struct semaphore *sem)
 {
+	/* 状态TASK_INTERRUPTIBLE，超时时间为最大值MAX_SCHEDULE_TIMEOUT */
 	return __down_common(sem, TASK_INTERRUPTIBLE, MAX_SCHEDULE_TIMEOUT);
 }
 
@@ -255,9 +264,10 @@ static noinline int __sched __down_timeout(struct semaphore *sem, long jiffies)
 
 static noinline void __sched __up(struct semaphore *sem)
 {
+	//取出等待队列sem->wait_list中的第一项waiter
 	struct semaphore_waiter *waiter = list_first_entry(&sem->wait_list,
-						struct semaphore_waiter, list);
-	list_del(&waiter->list);
-	waiter->up = 1;
-	wake_up_process(waiter->task);
+						struct semaphore_waiter, list);	
+	list_del(&waiter->list);	//将取出的waiter从sem->wait_list中删除
+	waiter->up = 1;				//标记被up醒
+	wake_up_process(waiter->task);	//唤醒取出的第一个waiter
 }
