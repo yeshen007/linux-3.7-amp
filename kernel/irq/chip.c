@@ -499,10 +499,25 @@ handle_edge_irq(unsigned int irq, struct irq_desc *desc)
 	 * we shouldn't process the IRQ. Mark it pending, handle
 	 * the necessary masking and go out
 	 */
+	 /* 如果中断被禁止或者中断在另一个cpu上执行或者没有注册，
+      * 则设置PENDING同时mask和ack然后退出，所以pending只有一个，因为mask了
+      * 如果是中断在另一个cpu上执行，在第一个cpu执行完后会在while循环看到pending,
+      * 然后就unmask后可以跑了
+      * 如果disabled导致的pending，那么只能是中断电平线不稳定造成的，而情况可能
+      * 发生在是本来就disable的(最大可能)或者在另一个cpu中执行该desc中注册中
+      * 断函数中disable了中断没enable前恢复前(小可能)，如果是大可能情况则都不会进入
+      * do while循环直接退出,如果是小可能情况则第一个cpu运行完注册的函数后然后enable
+      * 后就可以进入do while循环，此时会unmask_irq后handle_irq_event...what the fuck 
+      * is going on?所以小可能情况不能发生？是因为注册的中断函数中不可以disable后enable
+      * 吗？有这种规定？
+      * 如果是!action导致的pending那也是中断电平线不稳定造成的，mask和ack后直接退出,
+      * 当以后注册了这里的条件就不会满足，会走到do while循环,然后1通过到2这里会将本来masked
+      * 的unmask，最后跑handle_irq_event执行
+	  */
 	if (unlikely(irqd_irq_disabled(&desc->irq_data) ||
 		     irqd_irq_inprogress(&desc->irq_data) || !desc->action)) {
 		if (!irq_check_poll(desc)) {
-			desc->istate |= IRQS_PENDING;
+			desc->istate |= IRQS_PENDING;	
 			mask_ack_irq(desc);
 			goto out_unlock;
 		}
@@ -513,6 +528,7 @@ handle_edge_irq(unsigned int irq, struct irq_desc *desc)
 	desc->irq_data.chip->irq_ack(&desc->irq_data);
 
 	do {
+		//1
 		if (unlikely(!desc->action)) {
 			mask_irq(desc);
 			goto out_unlock;
@@ -523,6 +539,7 @@ handle_edge_irq(unsigned int irq, struct irq_desc *desc)
 		 * one, we could have masked the irq.
 		 * Renable it, if it was not disabled in meantime.
 		 */
+		 //2
 		if (unlikely(desc->istate & IRQS_PENDING)) {
 			if (!irqd_irq_disabled(&desc->irq_data) &&
 			    irqd_irq_masked(&desc->irq_data))

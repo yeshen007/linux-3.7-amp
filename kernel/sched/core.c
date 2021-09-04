@@ -3221,8 +3221,8 @@ EXPORT_SYMBOL(complete_all);
 static inline long __sched
 do_wait_for_common(struct completion *x, long timeout, int state)
 {
-	if (!x->done) {
-		DECLARE_WAITQUEUE(wait, current);
+	if (!x->done) {	//done表示当前在completion上的完成者个数
+		DECLARE_WAITQUEUE(wait, current);	//
 
 		__add_wait_queue_tail_exclusive(&x->wait, &wait);
 		do {
@@ -3231,11 +3231,11 @@ do_wait_for_common(struct completion *x, long timeout, int state)
 				break;
 			}
 			__set_current_state(state);
-			spin_unlock_irq(&x->wait.lock);
+			spin_unlock_irq(&x->wait.lock);	//
 			timeout = schedule_timeout(timeout);
 			spin_lock_irq(&x->wait.lock);
 		} while (!x->done && timeout);
-		__remove_wait_queue(&x->wait, &wait);
+		__remove_wait_queue(&x->wait, &wait);	//
 		if (!x->done)
 			return timeout;
 	}
@@ -3266,6 +3266,7 @@ wait_for_common(struct completion *x, long timeout, int state)
  */
 void __sched wait_for_completion(struct completion *x)
 {
+	/* 注意state是不可中断的TASK_UNINTERRUPTIBLE */
 	wait_for_common(x, MAX_SCHEDULE_TIMEOUT, TASK_UNINTERRUPTIBLE);
 }
 EXPORT_SYMBOL(wait_for_completion);
