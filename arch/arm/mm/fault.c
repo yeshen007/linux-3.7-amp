@@ -227,6 +227,7 @@ __do_page_fault(struct mm_struct *mm, unsigned long addr, unsigned int fsr,
 	struct vm_area_struct *vma;
 	int fault;
 
+	/* 如果找不到vma说明进程还没有映射这部分虚拟空间，返回错误码退出 */
 	vma = find_vma(mm, addr);
 	fault = VM_FAULT_BADMAP;
 	if (unlikely(!vma))
@@ -244,6 +245,7 @@ good_area:
 		goto out;
 	}
 
+	/* 核心 */
 	return handle_mm_fault(mm, vma, addr & PAGE_MASK, flags);
 
 check_stack:
@@ -279,6 +281,7 @@ do_page_fault(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 	 * If we're in an interrupt or have no user
 	 * context, we must not take the fault..
 	 */
+	 /* 如果是在中断上下文或者禁止内核抢占或者发生缺页异常的是内核进程则跳到__do_kernel_fault */
 	if (in_atomic() || !mm)
 		goto no_context;
 
@@ -306,6 +309,7 @@ retry:
 #endif
 	}
 
+	/* 处理用户态发生缺页异常大部分工作 */
 	fault = __do_page_fault(mm, addr, fsr, flags, tsk);
 
 	/* If we need to retry but a fatal signal is pending, handle the
@@ -346,9 +350,11 @@ retry:
 	/*
 	 * Handle the "normal" case first - VM_FAULT_MAJOR / VM_FAULT_MINOR
 	 */
+	 /* 如果__do_page_fault处理返回的错误没有以下三种，说明缺页异常处理完成成功返回 */
 	if (likely(!(fault & (VM_FAULT_ERROR | VM_FAULT_BADMAP | VM_FAULT_BADACCESS))))
 		return 0;
 
+	/* 如果返回的错误是oom则调用OOM killer */
 	if (fault & VM_FAULT_OOM) {
 		/*
 		 * We ran out of memory, call the OOM killer, and return to
@@ -363,6 +369,7 @@ retry:
 	 * If we are in kernel mode at this point, we
 	 * have no context to handle this fault with.
 	 */
+	 /*  */
 	if (!user_mode(regs))
 		goto no_context;
 
@@ -383,10 +390,12 @@ retry:
 			SEGV_ACCERR : SEGV_MAPERR;
 	}
 
+	/* 给进程发送信号表示无能为力了 */
 	__do_user_fault(tsk, addr, fsr, sig, code, regs);
 	return 0;
 
 no_context:
+	/* 发生oops */
 	__do_kernel_fault(mm, addr, fsr, regs);
 	return 0;
 }

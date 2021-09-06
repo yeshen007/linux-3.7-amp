@@ -3452,34 +3452,56 @@ int handle_pte_fault(struct mm_struct *mm,
 	spinlock_t *ptl;
 
 	entry = *pte;
+	
+	/* 页此时不在内存中，即          linux pte的L_PTE_PRESENT没有置1 */
 	if (!pte_present(entry)) {
+		/* 如果linux pte为空(linux pte为空arm pte一定为空,linux pte不为空,
+		 * arm pte不一定不为空),说明还没映射物理内存
+		 */
 		if (pte_none(entry)) {
+			/* 文件映射时缺页异常，最终调用的是do_fault */
 			if (vma->vm_ops) {
 				if (likely(vma->vm_ops->fault))
 					return do_linear_fault(mm, vma, address,
 						pte, pmd, flags, entry);
 			}
+			/* 匿名映射时缺页异常 */
 			return do_anonymous_page(mm, vma, address,
 						 pte, pmd, flags);
 		}
+		
 		if (pte_file(entry))
 			return do_nonlinear_fault(mm, vma, address,
 					pte, pmd, flags, entry);
+		/* 交换缺页异常
+		 * linux pte不为空且L_PTE_PRESENT没有置1,
+		 * 说明该页被交换到了swap区域，调用do_swap_page换进内存
+		 * 只有匿名页可以被交换，文件页不会
+		 */
 		return do_swap_page(mm, vma, address,
 					pte, pmd, flags, entry);
 	}
+
 
 	ptl = pte_lockptr(mm, pmd);
 	spin_lock(ptl);
 	if (unlikely(!pte_same(*pte, entry)))
 		goto unlock;
-	if (flags & FAULT_FLAG_WRITE) {
-		if (!pte_write(entry))
+	
+	/* 如果vm中可写 */
+	if (flags & FAULT_FLAG_WRITE) {	
+		/* 如果linux pte中不可写调用do_wp_page触发写时复制 */
+		if (!pte_write(entry))			
 			return do_wp_page(mm, vma, address,
 					pte, pmd, ptl, entry);
-		entry = pte_mkdirty(entry);
+		/* 如果linux pte可写设置L_PTE_DIRTY */
+		entry = pte_mkdirty(entry);		
 	}
+	
+	/* 无论读该页面还是写该页面都设置young，对应x86的acess位 */
 	entry = pte_mkyoung(entry);
+	
+	/* 如果linux pte发生变化(比如上面的young dirty等)则将新的linux pte写入arm pte中，并更新对应的tlb和cache */
 	if (ptep_set_access_flags(vma, address, pte, entry, flags & FAULT_FLAG_WRITE)) {
 		update_mmu_cache(vma, address, pte);
 	} else {
@@ -3520,13 +3542,13 @@ int handle_mm_fault(struct mm_struct *mm, struct vm_area_struct *vma,
 		return hugetlb_fault(mm, vma, address, flags);
 
 retry:
-	pgd = pgd_offset(mm, address);
-	pud = pud_alloc(mm, pgd, address);
-	if (!pud)
+	pgd = pgd_offset(mm, address);		//获取进程的pgd目录
+	pud = pud_alloc(mm, pgd, address);	//申请对应的pud表项
+	if (!pud)							//如果为空则返回VM_FAULT_OOM错误
 		return VM_FAULT_OOM;
-	pmd = pmd_alloc(mm, pud, address);
+	pmd = pmd_alloc(mm, pud, address);	//申请对应的pmd表项
 	if (!pmd)
-		return VM_FAULT_OOM;
+		return VM_FAULT_OOM;			//如果为空则返回VM_FAULT_OOM错误
 	if (pmd_none(*pmd) && transparent_hugepage_enabled(vma)) {
 		if (!vma->vm_ops)
 			return do_huge_pmd_anonymous_page(mm, vma, address,
@@ -3571,8 +3593,9 @@ retry:
 	 * read mode and khugepaged takes it in write mode. So now it's
 	 * safe to run pte_offset_map().
 	 */
-	pte = pte_offset_map(pmd, address);
+	pte = pte_offset_map(pmd, address);	//获得对应的pte页表条目
 
+	/* 核心 */
 	return handle_pte_fault(mm, vma, address, pte, pmd, flags);
 }
 
