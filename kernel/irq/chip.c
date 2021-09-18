@@ -546,6 +546,7 @@ handle_edge_irq(unsigned int irq, struct irq_desc *desc)
 				unmask_irq(desc);
 		}
 
+		/*  */
 		handle_irq_event(desc);
 
 	} while ((desc->istate & IRQS_PENDING) &&

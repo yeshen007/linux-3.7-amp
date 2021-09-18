@@ -3141,6 +3141,7 @@ static int do_anonymous_page(struct mm_struct *mm, struct vm_area_struct *vma,
 		return VM_FAULT_SIGBUS;
 
 	/* Use the zero-page for reads */
+	/* 如果映射是只读的，则这些匿名区域都映射到零页 */
 	if (!(flags & FAULT_FLAG_WRITE)) {
 		entry = pte_mkspecial(pfn_pte(my_zero_pfn(address),
 						vma->vm_page_prot));
@@ -3151,6 +3152,7 @@ static int do_anonymous_page(struct mm_struct *mm, struct vm_area_struct *vma,
 	}
 
 	/* Allocate our own private page. */
+	/* 映射是可写的 */
 	if (unlikely(anon_vma_prepare(vma)))
 		goto oom;
 	page = alloc_zeroed_user_highpage_movable(vma, address);
@@ -3171,6 +3173,7 @@ static int do_anonymous_page(struct mm_struct *mm, struct vm_area_struct *vma,
 
 	inc_mm_counter_fast(mm, MM_ANONPAGES);
 	page_add_new_anon_rmap(page, vma, address);
+	
 setpte:
 	set_pte_at(mm, address, page_table, entry);
 
@@ -3396,6 +3399,7 @@ static int do_linear_fault(struct mm_struct *mm, struct vm_area_struct *vma,
 			- vma->vm_start) >> PAGE_SHIFT) + vma->vm_pgoff;
 
 	pte_unmap(page_table);
+	/* 分配pagecache */
 	return __do_fault(mm, vma, address, pmd, pgoff, flags, orig_pte);
 }
 
@@ -3459,7 +3463,7 @@ int handle_pte_fault(struct mm_struct *mm,
 		 * arm pte不一定不为空),说明还没映射物理内存
 		 */
 		if (pte_none(entry)) {
-			/* 文件映射时缺页异常，最终调用的是do_fault */
+			/* 文件映射时缺页异常 */
 			if (vma->vm_ops) {
 				if (likely(vma->vm_ops->fault))
 					return do_linear_fault(mm, vma, address,

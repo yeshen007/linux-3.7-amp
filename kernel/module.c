@@ -3118,7 +3118,7 @@ SYSCALL_DEFINE3(init_module, void __user *, umod,
 		return -EPERM;
 
 	/* Do all the hard work */
-	mod = load_module(umod, len, uargs);
+	mod = load_module(umod, len, uargs);	//核心
 	if (IS_ERR(mod))
 		return PTR_ERR(mod);
 
