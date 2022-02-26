@@ -135,7 +135,7 @@ int __cpuinit __cpu_up(unsigned int cpu, struct task_struct *idle)
 	***************************************************************************
 	*/
 	amp_init();	//就加了这一个	
-	ret = boot_secondary(cpu, idle);
+	ret = boot_secondary(cpu, idle);	//启动副核
 	//ret = -EIO;
 	if (ret == 0) {
 		/*
@@ -163,13 +163,13 @@ int __cpuinit __cpu_up(unsigned int cpu, struct task_struct *idle)
 /* 在setup_arch中调用 */
 void __init smp_init_cpus(void)
 {
-	if (smp_ops.smp_init_cpus)	//socfpga_smp_init_cpus
+	if (smp_ops.smp_init_cpus)		//socfpga_smp_init_cpus
 		smp_ops.smp_init_cpus();
 }
 
 static void __init platform_smp_prepare_cpus(unsigned int max_cpus)
 {
-	if (smp_ops.smp_prepare_cpus)
+	if (smp_ops.smp_prepare_cpus)	//socfpga_smp_prepare_cpus
 		smp_ops.smp_prepare_cpus(max_cpus);
 }
 

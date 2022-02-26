@@ -2863,8 +2863,8 @@ need_resched:
 	if (unlikely(!rq->nr_running))
 		idle_balance(cpu, rq);
 
-	put_prev_task(rq, prev);	//更新当前进程的vruntime
-	next = pick_next_task(rq);	//
+	put_prev_task(rq, prev);	
+	next = pick_next_task(rq);	//pick_next_task_fair,只是单纯的选择第一个
 	clear_tsk_need_resched(prev);
 	rq->skip_clock_update = 0;
 

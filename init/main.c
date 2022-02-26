@@ -428,13 +428,19 @@ void __init parse_early_param(void)
 /*
  *	Activate the first processor.
  */
-
 static void __init boot_cpu_init(void)
 {
+	/* possible表示可能的最大的cpu数量
+	 * present表示处理器本身有的
+	 * online表示已经启动的(sencondry_boot)
+	 * active表示已经已经启动中进入可调度状态的(我猜的)
+	 * 一般来说possible最大，但也有特殊情况，比如socfpga中的
+	 * possible会根据kconfig的配置可能会变得比实际硬件上存在的(present)小
+	 */
 	int cpu = smp_processor_id();
 	/* Mark the boot cpu "present", "online" etc for SMP and UP case */
-	set_cpu_online(cpu, true);
-	set_cpu_active(cpu, true);
+	set_cpu_online(cpu, true);	
+	set_cpu_active(cpu, true);	
 	set_cpu_present(cpu, true);
 	set_cpu_possible(cpu, true);
 }
@@ -466,6 +472,7 @@ static void __init mm_init(void)
 	vmalloc_init();
 }
 
+//有些函数在socfpga.c中定义
 asmlinkage void __init start_kernel(void)
 {
 	char * command_line;
@@ -881,7 +888,7 @@ static void __init kernel_init_freeable(void)
 
 	cad_pid = task_pid(current);
 
-	smp_prepare_cpus(setup_max_cpus);
+	smp_prepare_cpus(setup_max_cpus);	//设置present
 
 	do_pre_smp_initcalls();
 	lockup_detector_init();

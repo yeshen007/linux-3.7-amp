@@ -719,6 +719,7 @@ void __init hyp_mode_check(void)
 #endif
 }
 
+
 void __init setup_arch(char **cmdline_p)
 {
 	struct machine_desc *mdesc;
@@ -762,7 +763,7 @@ void __init setup_arch(char **cmdline_p)
 #ifdef CONFIG_SMP
 	if (is_smp()) {
 		smp_set_ops(mdesc->smp);	/* 设置smp */
-		smp_init_cpus();
+		smp_init_cpus();		
 	}
 #endif
 
