@@ -2954,7 +2954,7 @@ static struct task_struct *pick_next_task_fair(struct rq *rq)
 
 	do {
 		se = pick_next_entity(cfs_rq);
-		set_next_entity(cfs_rq, se);
+		set_next_entity(cfs_rq, se);	//
 		cfs_rq = group_cfs_rq(se);
 	} while (cfs_rq);
 

@@ -721,7 +721,7 @@ static void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
 {
 	update_rq_clock(rq);
 	sched_info_dequeued(p);
-	p->sched_class->dequeue_task(rq, p, flags);
+	p->sched_class->dequeue_task(rq, p, flags);		
 }
 
 void activate_task(struct rq *rq, struct task_struct *p, int flags)
@@ -2744,7 +2744,7 @@ static void put_prev_task(struct rq *rq, struct task_struct *prev)
 {
 	if (prev->on_rq || rq->skip_clock_update < 0)
 		update_rq_clock(rq);
-	prev->sched_class->put_prev_task(rq, prev);
+	prev->sched_class->put_prev_task(rq, prev);	//put_prev_task_fair
 }
 
 /*
@@ -2824,7 +2824,7 @@ need_resched:
 	cpu = smp_processor_id();
 	rq = cpu_rq(cpu);
 	rcu_note_context_switch(cpu);
-	prev = rq->curr;	//当前cpu上运行的进程，就是现在的我
+	prev = rq->curr;	//当前cpu上运行的进程，就是现在运行在cpu的进程
 
 	schedule_debug(prev);
 
@@ -2834,12 +2834,16 @@ need_resched:
 	raw_spin_lock_irq(&rq->lock);
 
 	switch_count = &prev->nivcsw;
+	
+	/* 主动调度,内核抢占会跳过 */
 	if (prev->state && !(preempt_count() & PREEMPT_ACTIVE)) {
 		if (unlikely(signal_pending_state(prev->state, prev))) {
 			prev->state = TASK_RUNNING;
 		} else {
-			/* 如果满足当前进程被换出的条件则将它从红黑树移出 */
-			deactivate_task(rq, prev, DEQUEUE_SLEEP);
+			/* 如果满足当前进程被换出的条件则将它从红黑树移出
+             * 因为这里是主动调度,因此该进程会在schedule前挂在某个等待队列中
+			 */
+			deactivate_task(rq, prev, DEQUEUE_SLEEP);	//dequeue_task_fair
 			prev->on_rq = 0;
 
 			/*
@@ -2858,13 +2862,17 @@ need_resched:
 		switch_count = &prev->nvcsw;
 	}
 
-	pre_schedule(rq, prev);
+	pre_schedule(rq, prev); 
 
 	if (unlikely(!rq->nr_running))
 		idle_balance(cpu, rq);
 
-	put_prev_task(rq, prev);	
-	next = pick_next_task(rq);	//pick_next_task_fair,只是单纯的选择第一个
+	put_prev_task(rq, prev);	//put_prev_task_fair,只是更新时间
+	/* 选择红黑树第一个作为next 
+	 * 将next移出rq
+	 * 将next设为rq->curr
+	 */
+	next = pick_next_task(rq);	//pick_next_task_fair
 	clear_tsk_need_resched(prev);
 	rq->skip_clock_update = 0;
 
