@@ -21,8 +21,8 @@
 
 #include <asm/types.h>
 
-typedef u32 pteval_t;
-typedef u32 pmdval_t;
+typedef u32 pteval_t;		//页表项
+typedef u32 pmdval_t;		//
 
 #undef STRICT_MM_TYPECHECKS
 
@@ -44,20 +44,22 @@ typedef struct { pteval_t pgprot; } pgprot_t;
 #define __pmd(x)        ((pmd_t) { (x) } )
 #define __pgprot(x)     ((pgprot_t) { (x) } )
 
-#else
+#else		/* 用这个 */
 /*
  * .. while these make it easier on the compiler
  */
-typedef pteval_t pte_t;
+typedef pteval_t pte_t;		//
 typedef pmdval_t pmd_t;
 typedef pmdval_t pgd_t[2];
 typedef pteval_t pgprot_t;
 
+/* 将pte_t等类型转换成u32 */
 #define pte_val(x)      (x)
 #define pmd_val(x)      (x)
-#define pgd_val(x)	((x)[0])
+#define pgd_val(x)	((x)[0])	//
 #define pgprot_val(x)   (x)
 
+/* 将u32转换成  pte_t等类型 */
 #define __pte(x)        (x)
 #define __pmd(x)        (x)
 #define __pgprot(x)     (x)
