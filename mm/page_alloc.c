@@ -3589,6 +3589,7 @@ static int __build_all_zonelists(void *data)
  */
 void __ref build_all_zonelists(pg_data_t *pgdat, struct zone *zone)
 {
+	/*  */
 	set_zonelist_order();
 
 	if (system_state == SYSTEM_BOOTING) {
@@ -3602,9 +3603,11 @@ void __ref build_all_zonelists(pg_data_t *pgdat, struct zone *zone)
 		if (zone)
 			setup_zone_pageset(zone);
 #endif
-		stop_machine(__build_all_zonelists, pgdat, NULL);
+		/* 调用__build_all_zonelists(pgdat) */
+		stop_machine(__build_all_zonelists, pgdat, NULL);	
 		/* cpuset refresh routine should be here */
 	}
+	/*  */
 	vm_total_pages = nr_free_pagecache_pages();
 	/*
 	 * Disable grouping by mobility if the number of pages in the

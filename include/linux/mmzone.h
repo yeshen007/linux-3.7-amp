@@ -652,7 +652,8 @@ struct zoneref {
  */
 struct zonelist {
 	struct zonelist_cache *zlcache_ptr;		     // NULL or &zlcache
-	struct zoneref _zonerefs[MAX_ZONES_PER_ZONELIST + 1];
+	/* 排前面的是内核最喜欢的，分配内存首先从里面找 */
+	struct zoneref _zonerefs[MAX_ZONES_PER_ZONELIST + 1];	//相当于struct zonelist只有这个
 #ifdef CONFIG_NUMA
 	struct zonelist_cache zlcache;			     // optional ...
 #endif
@@ -683,9 +684,13 @@ extern struct page *mem_map;
  * per-zone basis.
  */
 struct bootmem_data;
+
 typedef struct pglist_data {
 	struct zone node_zones[MAX_NR_ZONES];
-	struct zonelist node_zonelists[MAX_ZONELISTS];
+	/* node_zonelists[0]指向本地的zones
+     * node_zonelists[1]指向远端的内存节点的zones
+	 */
+	struct zonelist node_zonelists[MAX_ZONELISTS];	
 	int nr_zones;
 #ifdef CONFIG_FLAT_NODE_MEM_MAP	/* means !SPARSEMEM */
 	struct page *node_mem_map;
