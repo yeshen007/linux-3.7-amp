@@ -257,6 +257,9 @@ struct per_cpu_pageset {
 
 #endif /* !__GENERATING_BOUNDS.H */
 
+/*
+ * 对于arm32来说ZONE_NORMAL=0,ZONE_HIGHMEM=1,ZONE_MOVABLE=2,__MAX_NR_ZONES=3
+ */
 enum zone_type {
 #ifdef CONFIG_ZONE_DMA
 	/*

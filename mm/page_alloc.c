@@ -3035,7 +3035,6 @@ static void zoneref_set_zone(struct zone *zone, struct zoneref *zoneref)
 
 /*
  * Builds allocation fallback zone lists.
- *
  * Add all populated zones of a node to the zonelist.
  */
 static int build_zonelists_node(pg_data_t *pgdat, struct zonelist *zonelist,
@@ -3046,12 +3045,13 @@ static int build_zonelists_node(pg_data_t *pgdat, struct zonelist *zonelist,
 	BUG_ON(zone_type >= MAX_NR_ZONES);
 	zone_type++;
 
+	/* 将节点pgdat中在zone从高到底加入zonelist */
 	do {
 		zone_type--;
-		zone = pgdat->node_zones + zone_type;
+		zone = pgdat->node_zones + zone_type;	//pgdat的zone_type的zone
 		if (populated_zone(zone)) {
-			zoneref_set_zone(zone,
-				&zonelist->_zonerefs[nr_zones++]);
+			/* 将zone的信息填入zonelist中 */
+			zoneref_set_zone(zone, &zonelist->_zonerefs[nr_zones++]);
 			check_highest_zone(zone_type);
 		}
 
@@ -3456,18 +3456,21 @@ static void set_zonelist_order(void)
 	current_zonelist_order = ZONELIST_ORDER_ZONE;
 }
 
+/* 为该节点创建所有备用zone */
 static void build_zonelists(pg_data_t *pgdat)
 {
 	int node, local_node;
 	enum zone_type j;
 	struct zonelist *zonelist;
 
-	local_node = pgdat->node_id;
+	local_node = pgdat->node_id;	//0
 
-	zonelist = &pgdat->node_zonelists[0];
+	zonelist = &pgdat->node_zonelists[0];	//备用列表
 	
-	/*  */
-	j = build_zonelists_node(pgdat, zonelist, 0, MAX_NR_ZONES - 1);
+	/* 先将本地节点的zone添加到备用列表
+     * j返回2,因为build_zonelists_node添加了两个
+	 */
+	j = build_zonelists_node(pgdat, zonelist, 0, MAX_NR_ZONES - 1);		/* 重点 */
 
 	/*
 	 * Now we build the zonelist so that it contains the zones
@@ -3477,6 +3480,7 @@ static void build_zonelists(pg_data_t *pgdat)
 	 * zones coming right after the local ones are those from
 	 * node N+1 (modulo N)
 	 */
+	/* 对于非numa系统以下两个循环不执行 */
 	for (node = local_node + 1; node < MAX_NUMNODES; node++) {
 		if (!node_online(node))
 			continue;
@@ -3490,6 +3494,7 @@ static void build_zonelists(pg_data_t *pgdat)
 							MAX_NR_ZONES - 1);
 	}
 
+	/* 代表结束符 */
 	zonelist->_zonerefs[j].zone = NULL;
 	zonelist->_zonerefs[j].zone_idx = 0;
 }
@@ -3546,7 +3551,7 @@ static int __build_all_zonelists(void *data)
 	for_each_online_node(nid) {
 		pg_data_t *pgdat = NODE_DATA(nid);
 
-		build_zonelists(pgdat);
+		build_zonelists(pgdat);		/* 重点 */
 		build_zonelist_cache(pgdat);
 	}
 
@@ -3604,7 +3609,7 @@ void __ref build_all_zonelists(pg_data_t *pgdat, struct zone *zone)
 			setup_zone_pageset(zone);
 #endif
 		/* 调用__build_all_zonelists(pgdat) */
-		stop_machine(__build_all_zonelists, pgdat, NULL);	
+		stop_machine(__build_all_zonelists, pgdat, NULL);	/* 重点 */
 		/* cpuset refresh routine should be here */
 	}
 	/*  */
