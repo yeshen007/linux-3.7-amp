@@ -202,7 +202,7 @@ static unsigned long __meminitdata arch_zone_lowest_possible_pfn[MAX_NR_ZONES];
 static unsigned long __meminitdata arch_zone_highest_possible_pfn[MAX_NR_ZONES];
 static unsigned long __initdata required_kernelcore;
 static unsigned long __initdata required_movablecore;
-static unsigned long __meminitdata zone_movable_pfn[MAX_NUMNODES];
+static unsigned long __meminitdata zone_movable_pfn[MAX_NUMNODES];	//movable区的起始地址
 
 /* movable_zone is the "real" zone pages in ZONE_MOVABLE are taken from */
 int movable_zone;
@@ -3807,6 +3807,8 @@ static void setup_zone_migrate_reserve(struct zone *zone)
  * Initially all pages are reserved - free ones are freed
  * up by free_all_bootmem() once the early boot process is
  * done. Non-atomic initialization, single-pass.
+ * 初始化节点nid的第zone个zone的从start_pfn开始size页的区域
+ * start_pfn属于全局命名空间
  */
 void __meminit memmap_init_zone(unsigned long size, int nid, unsigned long zone,
 		unsigned long start_pfn, enum memmap_context context)
@@ -3851,6 +3853,9 @@ void __meminit memmap_init_zone(unsigned long size, int nid, unsigned long zone,
 		 * can be created for invalid pages (for alignment)
 		 * check here not to call set_pageblock_migratetype() against
 		 * pfn out of zone.
+		 *
+		 * 如果pfn属于z的范围并且pfn页号是pageblock对齐就设置
+		 * pfn对应的pageblock为MIGRATE_MOVABLE
 		 */
 		if ((z->zone_start_pfn <= pfn)
 		    && (pfn < z->zone_start_pfn + z->spanned_pages)
@@ -4909,12 +4914,14 @@ void __init free_area_init_nodes(unsigned long *max_zone_pfn)
 		arch_zone_highest_possible_pfn[i] =
 			max(max_zone_pfn[i], arch_zone_lowest_possible_pfn[i]);
 	}
+
+	/* 因为ZONE_MOVABLE是一个虚拟的区域, 因此最小和最大边界都设为0                       */
 	arch_zone_lowest_possible_pfn[ZONE_MOVABLE] = 0;
 	arch_zone_highest_possible_pfn[ZONE_MOVABLE] = 0;
 
 	/* Find the PFNs that ZONE_MOVABLE begins at in each node */
 	memset(zone_movable_pfn, 0, sizeof(zone_movable_pfn));
-	find_zone_movable_pfns_for_nodes();
+	find_zone_movable_pfns_for_nodes();	//
 
 	/* Print out the zone ranges */
 	printk("Zone ranges:\n");
@@ -4949,6 +4956,8 @@ void __init free_area_init_nodes(unsigned long *max_zone_pfn)
 	/* Initialise every node */
 	mminit_verify_pageflags_layout();
 	setup_nr_node_ids();
+
+	/*  */
 	for_each_online_node(nid) {
 		pg_data_t *pgdat = NODE_DATA(nid);
 		free_area_init_node(nid, NULL,
@@ -5510,14 +5519,19 @@ static inline unsigned long *get_pageblock_bitmap(struct zone *zone,
 #endif /* CONFIG_SPARSEMEM */
 }
 
+/* 计算pfn在zone中的第几个pageblock,然后乘NR_PAGEBLOCK_BITS */
 static inline int pfn_to_bitidx(struct zone *zone, unsigned long pfn)
 {
 #ifdef CONFIG_SPARSEMEM
 	pfn &= (PAGES_PER_SECTION-1);
 	return (pfn >> pageblock_order) * NR_PAGEBLOCK_BITS;
 #else
-	pfn = pfn - zone->zone_start_pfn;
-	return (pfn >> pageblock_order) * NR_PAGEBLOCK_BITS;
+	pfn = pfn - zone->zone_start_pfn;	//zone的start_pfn到pfn之间的页数
+	/* pfn >> pageblock_order是这些页数除以pageblock_nr_pages得到的商
+     * 即pageblock_nr_pages的整数倍,代表第几个pageblock
+     * pageblock也是从0开始计数
+	 */
+	return (pfn >> pageblock_order) * NR_PAGEBLOCK_BITS;	//pageblock号乘3
 #endif /* CONFIG_SPARSEMEM */
 }
 
@@ -5528,6 +5542,9 @@ static inline int pfn_to_bitidx(struct zone *zone, unsigned long pfn)
  * @end_bitidx: The last bit of interest
  * returns pageblock_bits flags
  */
+ /* 
+  *获取page所在的pageblock对应的pageblock_flags中的对应的域
+  */
 unsigned long get_pageblock_flags_group(struct page *page,
 					int start_bitidx, int end_bitidx)
 {
@@ -5537,11 +5554,12 @@ unsigned long get_pageblock_flags_group(struct page *page,
 	unsigned long flags = 0;
 	unsigned long value = 1;
 
-	zone = page_zone(page);
-	pfn = page_to_pfn(page);
-	bitmap = get_pageblock_bitmap(zone, pfn);
-	bitidx = pfn_to_bitidx(zone, pfn);
+	zone = page_zone(page);		//该页属于的zone
+	pfn = page_to_pfn(page);	//该页的页号
+	bitmap = get_pageblock_bitmap(zone, pfn);	//zone->pageblock_flags
+	bitidx = pfn_to_bitidx(zone, pfn);	//pageblock号乘3
 
+	/*  */
 	for (; start_bitidx <= end_bitidx; start_bitidx++, value <<= 1)
 		if (test_bit(bitidx + start_bitidx, bitmap))
 			flags |= value;
@@ -5556,6 +5574,9 @@ unsigned long get_pageblock_flags_group(struct page *page,
  * @end_bitidx: The last bit of interest
  * @flags: The flags to set
  */
+ /* 
+  * 设置page所在的pageblock对应的pageblock_flags中的对应的域
+  */ 
 void set_pageblock_flags_group(struct page *page, unsigned long flags,
 					int start_bitidx, int end_bitidx)
 {
