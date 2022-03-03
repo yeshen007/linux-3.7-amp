@@ -575,7 +575,9 @@ static void __init alloc_init_pte(pmd_t *pmd, unsigned long addr,
 {
 	pte_t *pte = early_pte_alloc(pmd, addr, type->prot_l1);
 	do {
-		/* 将512个硬件页表项填入pte起始的地址 */
+		/* pfn和type->prot_pte或上得到pte项
+         * 将512个硬件页表项填入pte起始的地址
+	     */
 		set_pte_ext(pte, pfn_pte(pfn, __pgprot(type->prot_pte)), 0);
 		pfn++;
 	} while (pte++, addr += PAGE_SIZE, addr != end);

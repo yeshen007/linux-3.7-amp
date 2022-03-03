@@ -177,6 +177,7 @@ static inline pmd_t *pmd_offset(pud_t *pud, unsigned long addr)
 /* we don't need complex calculations here as the pmd is folded into the pgd */
 #define pmd_addr_end(addr,end) (end)
 
+/* 在proc-v7-2level.S的ENTRY(cpu_v7_set_pte_ext)中 */
 #define set_pte_ext(ptep,pte,ext) cpu_set_pte_ext(ptep,pte,ext)
 
 #endif /* __ASSEMBLY__ */

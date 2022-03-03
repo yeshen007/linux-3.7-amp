@@ -74,7 +74,7 @@ ENDPROC(cpu_v7_switch_mm)
  */
 ENTRY(cpu_v7_set_pte_ext)
 #ifdef CONFIG_MMU
-	str	r1, [r0]			@ linux version
+	str	r1, [r0]			@ linux version 
 
 	bic	r3, r1, #0x000003f0
 	bic	r3, r3, #PTE_TYPE_MASK
@@ -99,7 +99,8 @@ ENTRY(cpu_v7_set_pte_ext)
 	tst	r1, #L_PTE_XN
 	orrne	r3, r3, #PTE_EXT_XN
 
-	tst	r1, #L_PTE_YOUNG
+
+	tst	r1, #L_PTE_YOUNG		
 	tstne	r1, #L_PTE_PRESENT
 	moveq	r3, #0
 
