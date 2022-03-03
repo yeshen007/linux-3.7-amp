@@ -556,14 +556,17 @@ static void __init *early_alloc(unsigned long sz)
 	return early_alloc_aligned(sz, sz);
 }
 
+/* 填充pmd,然后返回pmd指向的第一个pte的地址 */
 static pte_t * __init early_pte_alloc(pmd_t *pmd, unsigned long addr, unsigned long prot)
 {
-	if (pmd_none(*pmd)) {
+	if (pmd_none(*pmd)) {	//如果*pmd为空说明未映射
+		/* 分配512+512个页表项的空间 */
 		pte_t *pte = early_alloc(PTE_HWTABLE_OFF + PTE_HWTABLE_SIZE);
-		__pmd_populate(pmd, __pa(pte), prot);
+		/* 将512个硬件pte项的起始地址填入pmd项 */
+		__pmd_populate(pmd, __pa(pte), prot);	
 	}
-	BUG_ON(pmd_bad(*pmd));
-	return pte_offset_kernel(pmd, addr);
+	BUG_ON(pmd_bad(*pmd));	//错误,*pmd不为空说明没有解除映射就映射
+	return pte_offset_kernel(pmd, addr);	
 }
 
 static void __init alloc_init_pte(pmd_t *pmd, unsigned long addr,
@@ -572,6 +575,7 @@ static void __init alloc_init_pte(pmd_t *pmd, unsigned long addr,
 {
 	pte_t *pte = early_pte_alloc(pmd, addr, type->prot_l1);
 	do {
+		/* 将512个硬件页表项填入pte起始的地址 */
 		set_pte_ext(pte, pfn_pte(pfn, __pgprot(type->prot_pte)), 0);
 		pfn++;
 	} while (pte++, addr += PAGE_SIZE, addr != end);
@@ -581,7 +585,7 @@ static void __init alloc_init_section(pud_t *pud, unsigned long addr,
 				      unsigned long end, phys_addr_t phys,
 				      const struct mem_type *type)
 {
-	pmd_t *pmd = pmd_offset(pud, addr);
+	pmd_t *pmd = pmd_offset(pud, addr);	//pmd = pud
 
 	/*
 	 * Try a section mapping - end, addr and phys must all be aligned
@@ -607,19 +611,19 @@ static void __init alloc_init_section(pud_t *pud, unsigned long addr,
 		 * No need to loop; pte's aren't interested in the
 		 * individual L1 entries.
 		 */
-		alloc_init_pte(pmd, addr, end, __phys_to_pfn(phys), type);
+		alloc_init_pte(pmd, addr, end, __phys_to_pfn(phys), type);	/*  */
 	}
 }
 
 static void __init alloc_init_pud(pgd_t *pgd, unsigned long addr,
 	unsigned long end, unsigned long phys, const struct mem_type *type)
 {
-	pud_t *pud = pud_offset(pgd, addr);
+	pud_t *pud = pud_offset(pgd, addr);	//pud = pgd
 	unsigned long next;
 
 	do {
-		next = pud_addr_end(addr, end);
-		alloc_init_section(pud, addr, next, phys, type);
+		next = pud_addr_end(addr, end);	//next = end
+		alloc_init_section(pud, addr, next, phys, type); /*  */
 		phys += next - addr;
 	} while (pud++, addr = next, addr != end);
 }
@@ -728,9 +732,9 @@ void __init create_mapping(struct map_desc *md)
 	}
 #endif
 
-	addr = md->virtual & PAGE_MASK;
-	phys = __pfn_to_phys(md->pfn);
-	length = PAGE_ALIGN(md->length + (md->virtual & ~PAGE_MASK));
+	addr = md->virtual & PAGE_MASK;	//起始虚拟地址页对齐向下取整
+	phys = __pfn_to_phys(md->pfn);	//起始物理地址
+	length = PAGE_ALIGN(md->length + (md->virtual & ~PAGE_MASK));	//长度页对齐向上取整
 
 	if (type->prot_l1 == 0 && ((addr | phys | length) & ~SECTION_MASK)) {
 		printk(KERN_WARNING "BUG: map for 0x%08llx at 0x%08lx can not "
@@ -739,13 +743,18 @@ void __init create_mapping(struct map_desc *md)
 		return;
 	}
 
-	pgd = pgd_offset_k(addr);
-	end = addr + length;
+	pgd = pgd_offset_k(addr);	// 取出虚拟地址范围指向第一个pgd项的地址,8字节
+	end = addr + length;	//虚拟结束地址,页对齐
+	
+	/* 循环将硬件页表项和linux页表项填入pgd项和pte表
+     * 每个循环得到的addr和next表示要设置页表的虚拟地址范围
+     * 这个范围是按PGDIR_SIZE对齐不是页对齐
+     * 第一轮处理的是不到一个PGDIR_SIZE的范围
+     * 第二轮开始的范围都是一个PGDIR_SIZE
+	 */
 	do {
-		unsigned long next = pgd_addr_end(addr, end);
-
-		alloc_init_pud(pgd, addr, next, phys, type);
-
+		unsigned long next = pgd_addr_end(addr, end);	//下一个不超过end但是PGDIR_SIZE对齐的地址
+		alloc_init_pud(pgd, addr, next, phys, type);	//填充addr, next之间的pgd项和pte页表	
 		phys += next - addr;
 		addr = next;
 	} while (pgd++, addr != end);
