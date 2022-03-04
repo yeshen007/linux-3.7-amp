@@ -574,9 +574,12 @@ static void __init alloc_init_pte(pmd_t *pmd, unsigned long addr,
 				  const struct mem_type *type)
 {
 	pte_t *pte = early_pte_alloc(pmd, addr, type->prot_l1);
+
+	/* 将512个linux页表项和512个硬件页表项填入pte起始的地址 */
 	do {
-		/* pfn和type->prot_pte或上得到pte项
-         * 将512个硬件页表项填入pte起始的地址
+		/* 填入一个linux页表项和一个硬件页表项
+		 * pfn和type->prot_pte或上得到pte项,这是linux pte项
+         * 在函数中会调整得到硬件pte项
 	     */
 		set_pte_ext(pte, pfn_pte(pfn, __pgprot(type->prot_pte)), 0);
 		pfn++;

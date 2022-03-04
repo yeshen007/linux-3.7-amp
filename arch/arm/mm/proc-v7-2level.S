@@ -74,20 +74,35 @@ ENDPROC(cpu_v7_switch_mm)
  */
 ENTRY(cpu_v7_set_pte_ext)
 #ifdef CONFIG_MMU
-	str	r1, [r0]			@ linux version 
+	str	r1, [r0]			//linux version,即linux页表项填入ptep
 
-	bic	r3, r1, #0x000003f0
-	bic	r3, r3, #PTE_TYPE_MASK
-	orr	r3, r3, r2
-	orr	r3, r3, #PTE_EXT_AP0 | 2
+	/* 将linux页表项拷贝到r3然后清除[9:4]再设置位1和位4
+     * 设置位1是表明这是二级页表项
+     * 设置位4是为了接下来设置ap1和ap2得到相应的用户和系统访问权限
+	 */
+	bic	r3, r1, #0x000003f0				//清r3副本页表项的[9:4]
+	bic	r3, r3, #PTE_TYPE_MASK			//清r3副本页表项的[1:0]
+	orr	r3, r3, r2				
+	orr	r3, r3, #PTE_EXT_AP0 | 2		//设置r3副本页表项位1和位4
 
-	tst	r1, #1 << 4
-	orrne	r3, r3, #PTE_EXT_TEX(1)
+	/* 如果linux页表项的位4(L_PTE_MT_DEV_SHAREED)打开则
+	 * 打开r3副本页表项的位6(TEX0)
+	 */
+	tst	r1, #1 << 4						
+	orrne	r3, r3, #PTE_EXT_TEX(1)		
 
+	/* 如果linux页表项的L_PTE_DIRTY位为0或者 
+     * L_PTE_RDONLY位为1则打开r3副本页表项位9(ap2)
+     * 表示只读
+     */
 	eor	r1, r1, #L_PTE_DIRTY
 	tst	r1, #L_PTE_RDONLY | L_PTE_DIRTY
 	orrne	r3, r3, #PTE_EXT_APX
 
+	/* 如果linux页表项的L_PTE_USER位打开则打开
+     * r3副本页表项的位5(ap1)
+     * 表示用户也有访问权限
+	 */
 	tst	r1, #L_PTE_USER
 	orrne	r3, r3, #PTE_EXT_AP1
 #ifdef CONFIG_CPU_USE_DOMAINS
@@ -96,15 +111,24 @@ ENTRY(cpu_v7_set_pte_ext)
 	bicne	r3, r3, #PTE_EXT_APX | PTE_EXT_AP0
 #endif
 
+	/* 设置XN */
 	tst	r1, #L_PTE_XN
 	orrne	r3, r3, #PTE_EXT_XN
 
-
+	/* 如果linux页表项中L_PTE_YOUNG和L_PTE_PRESENT没有全部打开
+     * 则将准备写到硬件页表项的r3清空,说明该页还没有被访问或者
+     * 还不存在内存中,因此linux先不把它设置到硬件页表项,但信息
+     * 还保存在linux页表项,当访问该页arm发现没有页表会触发异常
+     * 之后linux会在异常处理中将linux页表中的信息提取出来设置
+     * 到硬件页表项中
+	 */
 	tst	r1, #L_PTE_YOUNG		
 	tstne	r1, #L_PTE_PRESENT
 	moveq	r3, #0
 
+	/* 将r3中设置好的页表项写到ptep+2048地址处 */
  ARM(	str	r3, [r0, #2048]! )
+ 
  THUMB(	add	r0, r0, #2048 )
  THUMB(	str	r3, [r0] )
 	mcr	p15, 0, r0, c7, c10, 1		@ flush_pte
