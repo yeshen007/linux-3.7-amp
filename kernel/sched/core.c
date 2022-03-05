@@ -2835,7 +2835,9 @@ need_resched:
 
 	switch_count = &prev->nivcsw;
 	
-	/* 主动调度,内核抢占会跳过 */
+	/* 主动调度,并且禁止内核抢占会跳过,
+     * 也就是说执行这段代码的会事先将任务挂入一个等待队列
+     */
 	if (prev->state && !(preempt_count() & PREEMPT_ACTIVE)) {
 		if (unlikely(signal_pending_state(prev->state, prev))) {
 			prev->state = TASK_RUNNING;
@@ -4217,6 +4219,7 @@ SYSCALL_DEFINE0(sched_yield)
 
 static inline int should_resched(void)
 {
+	/*  */
 	return need_resched() && !(preempt_count() & PREEMPT_ACTIVE);
 }
 

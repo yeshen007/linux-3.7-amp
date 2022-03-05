@@ -2590,9 +2590,11 @@ struct page *
 __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order,
 			struct zonelist *zonelist, nodemask_t *nodemask)
 {
+	/* 根据gfp_mask计算zone    type */
 	enum zone_type high_zoneidx = gfp_zone(gfp_mask);
 	struct zone *preferred_zone;
 	struct page *page = NULL;
+	/* gfp_mask计算migrate  type */
 	int migratetype = allocflags_to_migratetype(gfp_mask);
 	unsigned int cpuset_mems_cookie;
 	int alloc_flags = ALLOC_WMARK_LOW|ALLOC_CPUSET;
@@ -2601,7 +2603,10 @@ __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order,
 
 	lockdep_trace_alloc(gfp_mask);
 
-	might_sleep_if(gfp_mask & __GFP_WAIT);
+	/* 如果设置了__GFP_WAIT则可能让出cpu,
+     * 取决于是否TIF_NEED_RESCHED
+	 */
+	might_sleep_if(gfp_mask & __GFP_WAIT);	
 
 	if (should_fail_alloc_page(gfp_mask, order))
 		return NULL;
@@ -2610,6 +2615,7 @@ __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order,
 	 * Check the zones suitable for the gfp_mask contain at least one
 	 * valid zone. It's possible to have an empty zonelist as a result
 	 * of GFP_THISNODE and a memoryless node
+	 * 如果没用没用zone则返回
 	 */
 	if (unlikely(!zonelist->_zonerefs->zone))
 		return NULL;
@@ -2617,7 +2623,9 @@ __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order,
 retry_cpuset:
 	cpuset_mems_cookie = get_mems_allowed();
 
-	/* The preferred zone is used for statistics later */
+	/* The preferred zone is used for statistics later
+	 * preferred_zone = 小于等于high_zoneidx最高的一个
+	 */
 	first_zones_zonelist(zonelist, high_zoneidx,
 				nodemask ? : &cpuset_current_mems_allowed,
 				&preferred_zone);
@@ -2628,11 +2636,14 @@ retry_cpuset:
 	if (allocflags_to_migratetype(gfp_mask) == MIGRATE_MOVABLE)
 		alloc_flags |= ALLOC_CMA;
 #endif
-	/* First allocation attempt */
+	/* First allocation attempt
+     * 尝试快速分配物理页
+	 */
 	page = get_page_from_freelist(gfp_mask|__GFP_HARDWALL, nodemask, order,
 			zonelist, high_zoneidx, alloc_flags,
 			preferred_zone, migratetype);
-	if (unlikely(!page))
+	/* 快速分配不成功,进入慢速通道 */
+	if (unlikely(!page))	
 		page = __alloc_pages_slowpath(gfp_mask, order,
 				zonelist, high_zoneidx, nodemask,
 				preferred_zone, migratetype);

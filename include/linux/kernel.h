@@ -141,7 +141,7 @@ struct user;
 
 #ifdef CONFIG_PREEMPT_VOLUNTARY
 extern int _cond_resched(void);
-# define might_resched() _cond_resched()
+# define might_resched() _cond_resched()	/*  */
 #else
 # define might_resched() do { } while (0)
 #endif
@@ -163,9 +163,11 @@ extern int _cond_resched(void);
 #else
   static inline void __might_sleep(const char *file, int line,
 				   int preempt_offset) { }
+/*  */				   
 # define might_sleep() do { might_resched(); } while (0)
 #endif
 
+/*  */
 #define might_sleep_if(cond) do { if (cond) might_sleep(); } while (0)
 
 /*

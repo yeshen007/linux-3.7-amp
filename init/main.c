@@ -544,7 +544,7 @@ asmlinkage void __init start_kernel(void)
 	}
 #endif
 
-	mm_init();
+	mm_init();		/*  */
 
 	/*
 	 * Set up the scheduler prior starting any interrupts (such as the
