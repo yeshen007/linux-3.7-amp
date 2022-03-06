@@ -212,12 +212,20 @@ static inline int allocflags_to_migratetype(gfp_t gfp_flags)
  *       0xf    => BAD (MOVABLE+DMA32+HIGHMEM+DMA)
  *
  * ZONES_SHIFT must be <= 2 on 32 bit platforms.
+ ****************************************************************
+ * fallback order : MOVABLE => HIGHMEM => NORMAL => DMA32 => DMA.
+ ****************************************************************
  */
 
 #if 16 * ZONES_SHIFT > BITS_PER_LONG
 #error ZONES_SHIFT too large to create GFP_ZONE_TABLE integer
 #endif
 
+/* +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+ 
+ * |00|00|00|00|00|10|00|00|00|00|00|00|00|01|00|00|
+ * +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+ * 00 ZONE_NORMAL, 01 ZONE_HIGHMEM , 10 ZONE_MOVABLE
+ */
 #define GFP_ZONE_TABLE ( \
 	(ZONE_NORMAL << 0 * ZONES_SHIFT)				      \
 	| (OPT_ZONE_DMA << ___GFP_DMA * ZONES_SHIFT)			      \
@@ -253,7 +261,13 @@ static inline enum zone_type gfp_zone(gfp_t flags)
 	/* 只保留flags低四位 */
 	int bit = (__force int) (flags & GFP_ZONEMASK);
 	
-	/* 根据flgas选择zone     type */
+	/* 根据flgas选择zone     type
+     * ZONES_SHIFT = 2,因为只用bit低4位,因此有16中bit的组合,
+     * 所以每种组合用GFP_ZONE_TABLE中的两位即ZONES_SHIFT
+     * bit * ZONES_SHIFT是bit在GFP_ZONE_TABLE中对应的两位
+     * 这两位就表示ZONE_NORMAL、ZONE_HIGHMEM、ZONE_MOVABLE
+     * 中哪一个
+	 */
 	z = (GFP_ZONE_TABLE >> (bit * ZONES_SHIFT)) &
 					 ((1 << ZONES_SHIFT) - 1);
 	
@@ -267,7 +281,6 @@ static inline enum zone_type gfp_zone(gfp_t flags)
  * can allocate highmem pages, the *get*page*() variants return
  * virtual kernel addresses to the allocated page(s).
  */
-
 static inline int gfp_zonelist(gfp_t flags)
 {
 	if (NUMA_BUILD && unlikely(flags & __GFP_THISNODE))

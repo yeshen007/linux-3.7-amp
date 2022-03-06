@@ -2624,7 +2624,7 @@ retry_cpuset:
 	cpuset_mems_cookie = get_mems_allowed();
 
 	/* The preferred zone is used for statistics later
-	 * preferred_zone = 小于等于high_zoneidx最高的一个
+	 * zonelist中第一个比high_zoneidx小或等于的
 	 */
 	first_zones_zonelist(zonelist, high_zoneidx,
 				nodemask ? : &cpuset_current_mems_allowed,
