@@ -1616,7 +1616,7 @@ static bool __zone_watermark_ok(struct zone *z, int order, unsigned long mark,
 	long lowmem_reserve = z->lowmem_reserve[classzone_idx];
 	int o;
 
-	free_pages -= (1 << order) - 1;
+	free_pages -= (1 << order) - 1;	//假如分配后剩下的空闲内存
 	if (alloc_flags & ALLOC_HIGH)
 		min -= min / 2;
 	if (alloc_flags & ALLOC_HARDER)
@@ -1628,6 +1628,8 @@ static bool __zone_watermark_ok(struct zone *z, int order, unsigned long mark,
 #endif
 	if (free_pages <= min + lowmem_reserve)
 		return false;
+
+	/*  */
 	for (o = 0; o < order; o++) {
 		/* At the next order, this order's pages become unavailable */
 		free_pages -= z->free_area[o].nr_free << o;
@@ -1911,7 +1913,10 @@ zonelist_scan:
 		if (!(alloc_flags & ALLOC_NO_WATERMARKS)) {
 			unsigned long mark;
 			int ret;
-
+			/* mark = zone->watermark[WMARK_LOW]
+			 * 然后判断zone的空闲页是否在WMARK_LOW之上
+			 * 如果在WMARK_LOW之上则try_this_zone
+			 */
 			mark = zone->watermark[alloc_flags & ALLOC_WMARK_MASK];
 			if (zone_watermark_ok(zone, order, mark,
 				    classzone_idx, alloc_flags))
