@@ -1475,6 +1475,7 @@ again:
 
 		local_irq_save(flags);
 		pcp = &this_cpu_ptr(zone->pageset)->pcp;
+		/* 对应pageset迁徙类型的列表头 */
 		list = &pcp->lists[migratetype];
 		
 		/* 如果是空的则调用rmqueue_bulk从伙伴系统移出相应的page到pageset */
@@ -1486,13 +1487,13 @@ again:
 				goto failed;
 		}
 
-		/* 取出该page */
+		/* 取出该page的指针,如果是cold取列表尾的页,不是cold取列表头 */
 		if (cold)
 			page = list_entry(list->prev, struct page, lru);
 		else
 			page = list_entry(list->next, struct page, lru);
 
-		list_del(&page->lru);
+		list_del(&page->lru);	
 		pcp->count--;
 	} else {
 		if (unlikely(gfp_flags & __GFP_NOFAIL)) {
