@@ -1077,7 +1077,8 @@ static struct page *__rmqueue(struct zone *zone, unsigned int order,
 	struct page *page;
 
 retry_reserve:
-	page = __rmqueue_smallest(zone, order, migratetype);
+	/*  */
+	page = __rmqueue_smallest(zone, order, migratetype);	
 
 	if (unlikely(!page) && migratetype != MIGRATE_RESERVE) {
 		page = __rmqueue_fallback(zone, order, migratetype);
@@ -1475,6 +1476,8 @@ again:
 		local_irq_save(flags);
 		pcp = &this_cpu_ptr(zone->pageset)->pcp;
 		list = &pcp->lists[migratetype];
+		
+		/* 如果是空的则调用rmqueue_bulk从伙伴系统移出相应的page到pageset */
 		if (list_empty(list)) {
 			pcp->count += rmqueue_bulk(zone, 0,
 					pcp->batch, list,
@@ -1483,6 +1486,7 @@ again:
 				goto failed;
 		}
 
+		/* 取出该page */
 		if (cold)
 			page = list_entry(list->prev, struct page, lru);
 		else
@@ -1505,7 +1509,7 @@ again:
 			WARN_ON_ONCE(order > 1);
 		}
 		spin_lock_irqsave(&zone->lock, flags);
-		page = __rmqueue(zone, order, migratetype);
+		page = __rmqueue(zone, order, migratetype);		/*  */
 		spin_unlock(&zone->lock);
 		if (!page)
 			goto failed;
