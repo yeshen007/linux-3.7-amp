@@ -541,14 +541,18 @@ static inline void __free_one_page(struct page *page,
 
 	VM_BUG_ON(migratetype == -1);
 
+	/* 获取释放的物理页的页号再转换成在一个最大空闲内存块中的索引 */
 	page_idx = page_to_pfn(page) & ((1 << MAX_ORDER) - 1);
 
 	VM_BUG_ON(page_idx & ((1 << order) - 1));
 	VM_BUG_ON(bad_range(zone, page));
 
+	/* 一直合并到不能再合并 */
 	while (order < MAX_ORDER-1) {
+		/* 计算出伙伴的idx,和伙伴的起始物理页 */
 		buddy_idx = __find_buddy_index(page_idx, order);
 		buddy = page + (buddy_idx - page_idx);
+		/* 判断伙伴是不是空闲的 */
 		if (!page_is_buddy(page, buddy, order))
 			break;
 		/*
@@ -592,7 +596,7 @@ static inline void __free_one_page(struct page *page,
 			goto out;
 		}
 	}
-
+	/* 将page添加到空闲链表中 */
 	list_add(&page->lru, &zone->free_area[order].free_list[migratetype]);
 out:
 	zone->free_area[order].nr_free++;
