@@ -2240,13 +2240,16 @@ redo:
 		goto new_slab;
 	}
 
-	/* must check again c->freelist in case of cpu migration or IRQ */
-	freelist = c->freelist;
+	/* must check again c->freelist in case of cpu migration or IRQ 
+     * 如果freelist有空闲内存对象则直接跳到load_freelist
+	 */
+	freelist = c->freelist;		
 	if (freelist)
 		goto load_freelist;
 
 	stat(s, ALLOC_SLOWPATH);
 
+	/* 看page起始的内存块是否有空闲内存对象 */
 	freelist = get_freelist(s, page);
 
 	if (!freelist) {
@@ -2344,10 +2347,10 @@ redo:
 	tid = c->tid;
 	barrier();
 
-	object = c->freelist;
-	page = c->page;
+	object = c->freelist;	//
+	page = c->page;			
 	if (unlikely(!object || !node_match(page, node)))
-		object = __slab_alloc(s, gfpflags, node, addr, c);
+		object = __slab_alloc(s, gfpflags, node, addr, c);	//普通通道
 
 	else {
 		void *next_object = get_freepointer_safe(s, object);
@@ -3052,7 +3055,7 @@ static int kmem_cache_open(struct kmem_cache *s, unsigned long flags)
 	if (need_reserve_slab_rcu && (s->flags & SLAB_DESTROY_BY_RCU))
 		s->reserved = sizeof(struct rcu_head);
 
-	if (!calculate_sizes(s, -1))
+	if (!calculate_sizes(s, -1))	/* */
 		goto error;
 	if (disable_higher_order_debug) {
 		/*
@@ -3960,7 +3963,7 @@ int __kmem_cache_create(struct kmem_cache *s, unsigned long flags)
 {
 	int err;
 
-	err = kmem_cache_open(s, flags);
+	err = kmem_cache_open(s, flags);	/*  */
 	if (err)
 		return err;
 
