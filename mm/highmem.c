@@ -355,15 +355,23 @@ void *page_address(const struct page *page)
 	void *ret;
 	struct page_address_slot *pas;
 
+	/* 如果是低端内存直接返回线性地址 */
 	if (!PageHighMem(page))
 		return lowmem_page_address(page);
-
+	
+	/* 先计算page的hash值,然后得到hash值对应的slot,
+	 * 每个slot是个链表,链表中每个节点是个page_address_map
+	 */
 	pas = page_slot(page);
 	ret = NULL;
 	spin_lock_irqsave(&pas->lock, flags);
+
+	/* 如果slot为空则跳过返回NULL
+     * 如果slot不为空遍历slot链表
+	 */
 	if (!list_empty(&pas->lh)) {
 		struct page_address_map *pam;
-
+		/* 遍历链表找直到找到该page的page_address_map或者遍历完退出 */
 		list_for_each_entry(pam, &pas->lh, list) {
 			if (pam->page == page) {
 				ret = pam->virtual;
