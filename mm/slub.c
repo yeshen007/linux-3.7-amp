@@ -248,6 +248,7 @@ static inline int check_valid_pointer(struct kmem_cache *s,
 	return 1;
 }
 
+/*  */
 static inline void *get_freepointer(struct kmem_cache *s, void *object)
 {
 	return *(void **)(object + s->offset);
@@ -2113,11 +2114,15 @@ static inline void *new_slab_objects(struct kmem_cache *s, gfp_t flags,
 	struct kmem_cache_cpu *c = *pc;
 	struct page *page;
 
+	/* 遍历kmem_cache_node中的partial列表找到空闲对象 */
 	freelist = get_partial(s, flags, node, c);
 
 	if (freelist)
 		return freelist;
 
+	/* 如果kmem_cache_node中的partial列表都没有空闲对象
+     * 则重新分配一个大内存块,page指向第一页
+	 */
 	page = new_slab(s, flags, node);
 	if (page) {
 		c = __this_cpu_ptr(s->cpu_slab);
@@ -2129,10 +2134,10 @@ static inline void *new_slab_objects(struct kmem_cache *s, gfp_t flags,
 		 * muck around with it freely without cmpxchg
 		 */
 		freelist = page->freelist;
-		page->freelist = NULL;
+		page->freelist = NULL;	//
 
 		stat(s, ALLOC_SLAB);
-		c->page = page;
+		c->page = page;		//
 		*pc = c;
 	} else
 		freelist = NULL;
@@ -2249,7 +2254,11 @@ redo:
 
 	stat(s, ALLOC_SLOWPATH);
 
-	/* 看page起始的内存块是否有空闲内存对象 */
+	/* 如果freelist没有指向空闲对象,
+     * 那么再看page起始的内存块是否有空闲内存对象,
+     * 如果page有空闲对象则顺着往下走即load_freelist,
+     * 如果page也没有空闲对象则跳到new_slab再看partial有没有
+	 */
 	freelist = get_freelist(s, page);
 
 	if (!freelist) {
@@ -2265,6 +2274,7 @@ load_freelist:
 	 * freelist is pointing to the list of objects to be used.
 	 * page is pointing to the page from which the objects are obtained.
 	 * That page must be frozen for per cpu allocations to work.
+	 * 返回freelist,c->freelist指向下一个
 	 */
 	VM_BUG_ON(!c->page->frozen);
 	c->freelist = get_freepointer(s, freelist);
@@ -2273,7 +2283,11 @@ load_freelist:
 	return freelist;
 
 new_slab:
-
+	/* 如果page没有了则看partial
+     * 如果partial有的话则c->page指向partial
+     * c->partial指向下一个partial
+     * 然后在redo,这次就能成功了
+	 */
 	if (c->partial) {
 		page = c->page = c->partial;
 		c->partial = page->next;
@@ -2282,6 +2296,7 @@ new_slab:
 		goto redo;
 	}
 
+	/* 如果partial也没有了则 */
 	freelist = new_slab_objects(s, gfpflags, node, &c);
 
 	if (unlikely(!freelist)) {
