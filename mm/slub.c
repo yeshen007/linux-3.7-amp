@@ -1363,7 +1363,7 @@ static struct page *new_slab(struct kmem_cache *s, gfp_t flags, int node)
 	if (page->pfmemalloc)
 		SetPageSlabPfmemalloc(page);
 
-	start = page_address(page);
+	start = page_address(page);		/*  */
 
 	if (unlikely(s->flags & SLAB_POISON))
 		memset(start, POISON_INUSE, PAGE_SIZE << compound_order(page));
@@ -1377,7 +1377,7 @@ static struct page *new_slab(struct kmem_cache *s, gfp_t flags, int node)
 	setup_object(s, page, last);
 	set_freepointer(s, last, NULL);
 
-	page->freelist = start;
+	page->freelist = start;		/*  */
 	page->inuse = page->objects;
 	page->frozen = 1;
 out:
@@ -2619,8 +2619,9 @@ redo:
 	barrier();
 
 	if (likely(page == c->page)) {
-		set_freepointer(s, object, c->freelist);
-
+		/* object的指针指向c->freelist */
+		set_freepointer(s, object, c->freelist);	
+		/* c->freelist指针重新指向object */
 		if (unlikely(!this_cpu_cmpxchg_double(
 				s->cpu_slab->freelist, s->cpu_slab->tid,
 				c->freelist, tid,
@@ -2631,7 +2632,7 @@ redo:
 		}
 		stat(s, FREE_FASTPATH);
 	} else
-		__slab_free(s, page, x, addr);
+		__slab_free(s, page, x, addr);	//
 
 }
 

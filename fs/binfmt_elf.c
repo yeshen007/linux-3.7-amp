@@ -725,12 +725,14 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 	if (!(current->personality & ADDR_NO_RANDOMIZE) && randomize_va_space)
 		current->flags |= PF_RANDOMIZE;
 
-	setup_new_exec(bprm);
+	/* 设置mmap_base */
+	setup_new_exec(bprm);	
 
 	/* Do this so that we can load the interpreter, if need be.  We will
 	   change some of these later */
 	current->mm->free_area_cache = current->mm->mmap_base;
 	current->mm->cached_hole_size = 0;
+	/*  */
 	retval = setup_arg_pages(bprm, randomize_stack_top(STACK_TOP),
 				 executable_stack);
 	if (retval < 0) {
