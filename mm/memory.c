@@ -3244,7 +3244,8 @@ static int __do_fault(struct mm_struct *mm, struct vm_area_struct *vma,
 	vmf.pgoff = pgoff;
 	vmf.flags = flags;
 	vmf.page = NULL;
-
+ 
+	/* 调用filemap_fault */ 
 	ret = vma->vm_ops->fault(vma, &vmf);
 	if (unlikely(ret & (VM_FAULT_ERROR | VM_FAULT_NOPAGE |
 			    VM_FAULT_RETRY)))
@@ -3597,7 +3598,7 @@ retry:
 	 * read mode and khugepaged takes it in write mode. So now it's
 	 * safe to run pte_offset_map().
 	 */
-	pte = pte_offset_map(pmd, address);	//获得对应的pte页表条目
+	pte = pte_offset_map(pmd, address);	//获得对应的linux pte页表条目
 
 	/* 核心 */
 	return handle_pte_fault(mm, vma, address, pte, pmd, flags);
