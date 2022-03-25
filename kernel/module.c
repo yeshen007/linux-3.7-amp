@@ -168,17 +168,17 @@ int unregister_module_notifier(struct notifier_block * nb)
 EXPORT_SYMBOL(unregister_module_notifier);
 
 struct load_info {
-	Elf_Ehdr *hdr;
-	unsigned long len;
-	Elf_Shdr *sechdrs;
-	char *secstrings, *strtab;
+	Elf_Ehdr *hdr;		//指向elf文件头的指针
+	unsigned long len;	//elf文件大小
+	Elf_Shdr *sechdrs;	//指向节头表的指针
+	char *secstrings, *strtab;	//节字符串表和符号字符串表指针
 	unsigned long symoffs, stroffs;
 	struct _ddebug *debug;
 	unsigned int num_debug;
 	bool sig_ok;
 	struct {
 		unsigned int sym, str, mod, vers, info, pcpu;
-	} index;
+	} index;	
 };
 
 /* We require a truly strong try_module_get(): 0 means failure due to
@@ -2476,6 +2476,7 @@ static int copy_and_check(struct load_info *info,
 	if ((hdr = vmalloc(len)) == NULL)
 		return -ENOMEM;
 
+	/* 将用户空间的elf全部拷贝到hdr */
 	if (copy_from_user(hdr, umod, len) != 0) {
 		err = -EFAULT;
 		goto free_hdr;
@@ -2501,7 +2502,7 @@ static int copy_and_check(struct load_info *info,
 		goto free_hdr;
 	}
 
-	info->hdr = hdr;
+	info->hdr = hdr;		
 	info->len = len;
 	return 0;
 
@@ -2576,7 +2577,7 @@ static struct module *setup_load_info(struct load_info *info)
 	/* Find internal symbols and strings. */
 	for (i = 1; i < info->hdr->e_shnum; i++) {
 		if (info->sechdrs[i].sh_type == SHT_SYMTAB) {
-			info->index.sym = i;
+			info->index.sym = i;	
 			info->index.str = info->sechdrs[i].sh_link;
 			info->strtab = (char *)info->hdr
 				+ info->sechdrs[info->index.str].sh_offset;
@@ -2854,6 +2855,7 @@ static struct module *layout_and_allocate(struct load_info *info)
 	Elf_Shdr *pcpusec;
 	int err;
 
+	/* 第一次改写 */
 	mod = setup_load_info(info);
 	if (IS_ERR(mod))
 		return mod;
@@ -2958,12 +2960,16 @@ static struct module *load_module(void __user *umod,
 	pr_debug("load_module: umod=%p, len=%lu, uargs=%p\n",
 	       umod, len, uargs);
 
-	/* Copy in the blobs from userspace, check they are vaguely sane. */
+	/* Copy in the blobs from userspace, check they are vaguely sane. 
+     * 将umod的elf拷贝到内核中
+     */
 	err = copy_and_check(&info, umod, len, uargs);
 	if (err)
 		return ERR_PTR(err);
 
-	/* Figure out module layout, and allocate all the memory. */
+	/* Figure out module layout, and allocate all the memory. 
+     * 
+	 */
 	mod = layout_and_allocate(&info);
 	if (IS_ERR(mod)) {
 		err = PTR_ERR(mod);

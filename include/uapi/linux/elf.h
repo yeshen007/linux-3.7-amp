@@ -301,7 +301,7 @@ typedef struct elf32_shdr {
   Elf32_Word	sh_type;
   Elf32_Word	sh_flags;
   Elf32_Addr	sh_addr;
-  Elf32_Off	sh_offset;
+  Elf32_Off		sh_offset;
   Elf32_Word	sh_size;
   Elf32_Word	sh_link;
   Elf32_Word	sh_info;

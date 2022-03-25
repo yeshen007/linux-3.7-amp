@@ -48,7 +48,13 @@ extern struct module __this_module;
 #define __CRC_SYMBOL(sym, sec)
 #endif
 
-/* For every exported symbol, place a struct in the __ksymtab section */
+/* For every exported symbol, place a struct in the __ksymtab section
+ * 比如 EXPORT_SYMBOL(my_function) --> __EXPORT_SYMBOL(my_function, "")
+ * --> extern typeof(my_function) my_function;
+ *     __CRC_SYMBOL(my_function, "")
+ *     static const char __kstrtab_my_function[] = "my_function";
+ *     static const struct kernel_symbol __ksymtab_my_function = {(unsigned long)&my_function, __kstrtab_my_function};
+ */
 #define __EXPORT_SYMBOL(sym, sec)				\
 	extern typeof(sym) sym;					\
 	__CRC_SYMBOL(sym, sec)					\

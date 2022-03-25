@@ -201,10 +201,10 @@ struct module_use {
 
 enum module_state
 {
-	MODULE_STATE_LIVE,
-	MODULE_STATE_COMING,
-	MODULE_STATE_GOING,
-};
+	MODULE_STATE_LIVE,		//已经在系统中
+	MODULE_STATE_COMING,	//正在加载
+	MODULE_STATE_GOING,		//正在卸载
+};	
 
 /**
  * struct module_ref - per cpu module reference counts
@@ -222,13 +222,13 @@ struct module_ref {
 
 struct module
 {
-	enum module_state state;
+	enum module_state state;	//状态
 
 	/* Member of list of modules */
-	struct list_head list;
+	struct list_head list;		//连接到全局内核模块链表中
 
 	/* Unique handle for this module */
-	char name[MODULE_NAME_LEN];
+	char name[MODULE_NAME_LEN];	//模块名	
 
 	/* Sysfs stuff. */
 	struct module_kobject mkobj;
@@ -238,12 +238,12 @@ struct module
 	struct kobject *holders_dir;
 
 	/* Exported symbols */
-	const struct kernel_symbol *syms;
-	const unsigned long *crcs;
+	const struct kernel_symbol *syms;	//内核模块导出的符号指针
+	const unsigned long *crcs;			//内核模块导出的校验码指针
 	unsigned int num_syms;
 
 	/* Kernel parameters. */
-	struct kernel_param *kp;
+	struct kernel_param *kp;			//内核模块参数指针
 	unsigned int num_kp;
 
 	/* GPL-only exported symbols. */
@@ -278,7 +278,7 @@ struct module
 	struct exception_table_entry *extable;
 
 	/* Startup function. */
-	int (*init)(void);
+	int (*init)(void);		//内核模块初始化函数
 
 	/* If this is non-NULL, vfree after init() returns */
 	void *module_init;
