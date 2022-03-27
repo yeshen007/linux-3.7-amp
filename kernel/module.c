@@ -2881,8 +2881,9 @@ static struct module *layout_and_allocate(struct load_info *info)
 	}
 
 	/* Determine total sizes, and put offsets in sh_entsize.  For now
-	   this is done generically; there doesn't appear to be any
-	   special cases for the architectures. */
+	 * this is done generically; there doesn't appear to be any
+	 * special cases for the architectures.
+	 */
 	layout_sections(mod, info);
 	layout_symtab(mod, info);
 
