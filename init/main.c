@@ -636,7 +636,7 @@ asmlinkage void __init start_kernel(void)
 	key_init();
 	security_init();
 	dbg_late_init();
-	vfs_caches_init(totalram_pages);
+	vfs_caches_init(totalram_pages);	/* 挂载根文件系统 */
 	signals_init();
 	/* rootfs populating might need page-writeback */
 	page_writeback_init();

@@ -2638,8 +2638,8 @@ void __init mnt_init(void)
 	fs_kobj = kobject_create_and_add("fs", NULL);
 	if (!fs_kobj)
 		printk(KERN_WARNING "%s: kobj create error\n", __func__);
-	init_rootfs();
-	init_mount_tree();
+	init_rootfs();			/* 注册跟文件系统 */
+	init_mount_tree();		/* 创建根目录,挂载根文件系统到根目录 */
 }
 
 void put_mnt_ns(struct mnt_namespace *ns)

@@ -3147,7 +3147,7 @@ SYSCALL_DEFINE3(init_module, void __user *, umod,
 	do_mod_ctors(mod);
 	/* Start the module */
 	if (mod->init != NULL)
-		ret = do_one_initcall(mod->init);
+		ret = do_one_initcall(mod->init);	//调用模块init函数
 	if (ret < 0) {
 		/* Init routine failed: abort.  Try to protect us from
                    buggy refcounters. */
