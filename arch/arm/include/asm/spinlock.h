@@ -113,10 +113,10 @@ static inline int arch_spin_trylock(arch_spinlock_t *lock)
 	u32 slock;
 
 	__asm__ __volatile__(
-"	ldrex	%0, [%2]\n"
-"	subs	%1, %0, %0, ror #16\n"
-"	addeq	%0, %0, %3\n"
-"	strexeq	%1, %0, [%2]"
+"	ldrex	%0, [%2]\n"					//slock = lock->slock
+"	subs	%1, %0, %0, ror #16\n"		//tmp = slock - (slock >> 16)
+"	addeq	%0, %0, %3\n"				//if (tmp == 0) tmp = tmp + (1 << 16)
+"	strexeq	%1, %0, [%2]"				//if (tmp == 0) try lock->slock = slock, tmp = 1 mean failed, tmp = 0 mean ok
 	: "=&r" (slock), "=&r" (tmp)
 	: "r" (&lock->slock), "I" (1 << TICKET_SHIFT)
 	: "cc");
