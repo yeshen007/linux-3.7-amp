@@ -86,11 +86,11 @@ static inline void arch_spin_lock(arch_spinlock_t *lock)
 	arch_spinlock_t lockval;	
 
 	__asm__ __volatile__(
-"1:	ldrex	%0, [%3]\n"
-"	add	%1, %0, %4\n"
-"	strex	%2, %1, [%3]\n"
-"	teq	%2, #0\n"
-"	bne	1b"
+"1:	ldrex	%0, [%3]\n"			//lockval = lock->slock
+"	add	%1, %0, %4\n"			//newval = lockval + (1 << TICKET_SHIFT)
+"	strex	%2, %1, [%3]\n"		//try lock->slock = newval; tmp = 0 is ok; tmp = 1 is failed;
+"	teq	%2, #0\n"				//if (tmp != 0)
+"	bne	1b"						//		goto 1;
 	: "=&r" (lockval), "=&r" (newval), "=&r" (tmp)
 	: "r" (&lock->slock), "I" (1 << TICKET_SHIFT)
 	: "cc");
@@ -113,10 +113,10 @@ static inline int arch_spin_trylock(arch_spinlock_t *lock)
 	u32 slock;
 
 	__asm__ __volatile__(
-"	ldrex	%0, [%2]\n"					//slock = lock->slock
-"	subs	%1, %0, %0, ror #16\n"		//tmp = slock - (slock >> 16)
-"	addeq	%0, %0, %3\n"				//if (tmp == 0) tmp = tmp + (1 << 16)
-"	strexeq	%1, %0, [%2]"				//if (tmp == 0) try lock->slock = slock, tmp = 1 mean failed, tmp = 0 mean ok
+"	ldrex	%0, [%2]\n"					
+"	subs	%1, %0, %0, ror #16\n"		
+"	addeq	%0, %0, %3\n"				
+"	strexeq	%1, %0, [%2]"				
 	: "=&r" (slock), "=&r" (tmp)
 	: "r" (&lock->slock), "I" (1 << TICKET_SHIFT)
 	: "cc");
@@ -137,17 +137,17 @@ static inline void arch_spin_unlock(arch_spinlock_t *lock)
 	smp_mb();
 
 	__asm__ __volatile__(
-"	mov	%1, #1\n"
-"1:	ldrex	%0, [%2]\n"
-"	uadd16	%0, %0, %1\n"
-"	strex	%1, %0, [%2]\n"
-"	teq	%1, #0\n"
-"	bne	1b"
+"	mov	%1, #1\n"					//tmp = 1
+"1:	ldrex	%0, [%2]\n"				//slock = lock->slock
+"	uadd16	%0, %0, %1\n"			//slock = slock + 1
+"	strex	%1, %0, [%2]\n"			//try lock->slock = slock; tmp = 0 is ok;
+"	teq	%1, #0\n"					//if (tmp != 0)
+"	bne	1b"							//	goto 1;
 	: "=&r" (slock), "=&r" (tmp)
 	: "r" (&lock->slock)
 	: "cc");
 
-	dsb_sev();
+	dsb_sev();						//wake up all who wait the lock
 }
 
 static inline int arch_spin_is_locked(arch_spinlock_t *lock)

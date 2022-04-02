@@ -129,15 +129,16 @@ static inline void smp_mb__after_lock(void) { smp_mb(); }
 #define raw_spin_unlock_wait(lock)	arch_spin_unlock_wait(&(lock)->raw_lock)
 
 #ifdef CONFIG_DEBUG_SPINLOCK
- extern void do_raw_spin_lock(raw_spinlock_t *lock) __acquires(lock);
+/* 看下面sb */
+extern void do_raw_spin_lock(raw_spinlock_t *lock) __acquires(lock);
 #define do_raw_spin_lock_flags(lock, flags) do_raw_spin_lock(lock)
- extern int do_raw_spin_trylock(raw_spinlock_t *lock);
- extern void do_raw_spin_unlock(raw_spinlock_t *lock) __releases(lock);
+extern int do_raw_spin_trylock(raw_spinlock_t *lock);
+extern void do_raw_spin_unlock(raw_spinlock_t *lock) __releases(lock);
 #else
 static inline void do_raw_spin_lock(raw_spinlock_t *lock) __acquires(lock)
 {
 	__acquire(lock);
-	arch_spin_lock(&lock->raw_lock);	//
+	arch_spin_lock(&lock->raw_lock);	/* 在这里sb */
 }
 
 static inline void
