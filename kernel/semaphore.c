@@ -219,12 +219,12 @@ static inline int __sched __down_common(struct semaphore *sem, long state,
 		if (timeout <= 0)
 			goto timed_out;
 		
-		__set_task_state(task, state);		//设置进程状态
-		raw_spin_unlock_irq(&sem->lock);	//让出cpu前需要将sem->lock解锁，否则其他信号量申请者就一直自旋
-		timeout = schedule_timeout(timeout);	//让出cpu，从运行队列移出
-		raw_spin_lock_irq(&sem->lock);		//进程重新夺取cpu，重新恢复sem->lock锁住状态
+		__set_task_state(task, state);		//设置进程状态为传入的参数如TASK_INTERRUPTIBLE
+		raw_spin_unlock_irq(&sem->lock);	//让出cpu前需要将sem->lock解锁,否则其他信号量申请者就一直自旋
+		timeout = schedule_timeout(timeout);//让出cpu,从运行队列移出timeout之后又被重新放入运行队列
+		raw_spin_lock_irq(&sem->lock);		//进程重新夺取cpu,重新恢复sem->lock锁住状态
 
-		/* 如果是被信号量获得者up醒的则退出执行临界区代码，否则继续for循环
+		/* 如果是被信号量获得者up醒的则退出执行临界区代码,否则继续for循环
 		 * 屏幕前的你可能和当年的我有同样一个疑问，既然被up醒获得信号量不是该把sem->count--吗？
 		 * 因为up()中对于没有等待获得信号量而睡眠进程的情况也不用++
 		 */

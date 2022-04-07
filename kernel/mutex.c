@@ -340,6 +340,9 @@ __mutex_unlock_common_slowpath(atomic_t *lock_count, int nested)
 	if (__mutex_slowpath_needs_to_unlock())
 		atomic_set(&lock->count, 1);	//释放锁，设置count为1
 
+	/* 唤醒队列第一个进程如果有的话,因为等待互斥锁的进程会先自旋
+     * 一段时间所以队列可能为空
+	 */
 	if (!list_empty(&lock->wait_list)) {
 		/* get the first entry from the wait-list: */
 		struct mutex_waiter *waiter =
@@ -360,7 +363,7 @@ __mutex_unlock_common_slowpath(atomic_t *lock_count, int nested)
 static __used noinline void
 __mutex_unlock_slowpath(atomic_t *lock_count)
 {
-	__mutex_unlock_common_slowpath(lock_count, 1);
+	__mutex_unlock_common_slowpath(lock_count, 1);	//
 }
 
 #ifndef CONFIG_DEBUG_LOCK_ALLOC
@@ -418,11 +421,11 @@ static __used noinline void __sched
 __mutex_lock_slowpath(atomic_t *lock_count)
 {
 	struct mutex *lock = container_of(lock_count, struct mutex, count);
-	/* 和down函数原理差不多，只不过会在真正将进程放进等待队列前会
-     * 先自旋询问count是否为1，如果为1就不睡了，如果不符合自旋条件则睡眠
-     * 因为大家认为互斥锁不想信号量是多方一起用，而是两个人用，
-     * 因此它的被占用时间相对较短，所以先轮询一段时间，这段时间对方释放的
-     * 概率比较大，因此不睡的概率也大，相对于信号量机制怎么都要睡优化了
+	/* 和down函数原理差不多,只不过会在真正将进程放进等待队列前会
+     * 先自旋询问count是否为1,如果为1就不睡了,如果不符合自旋条件则睡眠
+     * 因为大家认为互斥锁不像信号量是多方一起用,而是两个人用,
+     * 因此它的被占用时间相对较短,所以先轮询一段时间，这段时间对方释放的
+     * 概率比较大，因此不睡的概率也大,相对于信号量机制怎么都要睡优化了
 	 */
 	__mutex_lock_common(lock, TASK_UNINTERRUPTIBLE, 0, NULL, _RET_IP_);
 }

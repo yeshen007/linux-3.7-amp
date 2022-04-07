@@ -129,6 +129,7 @@ static inline int arch_spin_trylock(arch_spinlock_t *lock)
 	}
 }
 
+/* lock->slock加1 */
 static inline void arch_spin_unlock(arch_spinlock_t *lock)
 {
 	unsigned long tmp;
@@ -176,12 +177,12 @@ static inline void arch_write_lock(arch_rwlock_t *rw)
 	unsigned long tmp;
 
 	__asm__ __volatile__(
-"1:	ldrex	%0, [%1]\n"
-"	teq	%0, #0\n"
-	WFE("ne")	//表示如果ne则睡眠，直到有解锁唤醒，省电
-"	strexeq	%0, %2, [%1]\n"
-"	teq	%0, #0\n"
-"	bne	1b"
+"1:	ldrex	%0, [%1]\n"		//tmp = rw->lock
+"	teq	%0, #0\n"			//test tmp with 0
+	WFE("ne")				//if (tmp != 0)	sleep;直到有解锁唤醒,省电
+"	strexeq	%0, %2, [%1]\n"	//if (tmp == 0) try rw->lock = 0x80000000;最高位表示写 
+"	teq	%0, #0\n"			//再次test tmp with 0
+"	bne	1b"					//if (tmp != 0) goto 1;
 	: "=&r" (tmp)
 	: "r" (&rw->lock), "r" (0x80000000)
 	: "cc");
@@ -214,12 +215,12 @@ static inline void arch_write_unlock(arch_rwlock_t *rw)
 	smp_mb();
 
 	__asm__ __volatile__(
-	"str	%1, [%0]\n"
+	"str	%1, [%0]\n"			//rw->lock = 0
 	:
 	: "r" (&rw->lock), "r" (0)
 	: "cc");
 
-	dsb_sev();
+	dsb_sev();					//
 }
 
 /* write_can_lock - would write_trylock() succeed? */
@@ -237,21 +238,26 @@ static inline void arch_write_unlock(arch_rwlock_t *rw)
  * currently active.  However, we know we won't have any write
  * locks.
  */
-static inline void arch_read_lock(arch_rwlock_t *rw)
+ //rw->lock加1
+static inline void arch_read_lock(arch_rwlock_t *rw)		
 {
 	unsigned long tmp, tmp2;
 
-	/* pl表示N==0,mi表示N==1 */
+	/* pl表示N==0
+	 * mi表示N==1
+     * 如果N==0则将tmp写回rw然后跳过WFE到rsbpls,如果N为1则到WFE
+     * 如果N==1则睡眠,直到被写锁或者读锁释放唤醒,无论被什么锁释放都会直接跳到bmi
+     * 如果被读锁释放唤醒则bmi 1b会执行重新ldrex
+     * 如果被写锁释放唤醒则bmi 1b不会执行,获得锁退出执行临界区代码
+     * rsb结果为0说明strex成功,为负数说明不成功继续返回重新ldrex
+	 */
 	__asm__ __volatile__(
-"1:	ldrex	%0, [%2]\n"
-"	adds	%0, %0, #1\n"
-"	strexpl	%1, %0, [%2]\n"	//如果N==0则将tmp写回rw然后跳过WFE到rsbpls，如果N为1则到WFE
-	//如果N==1则睡眠，直到被写锁或者读锁释放唤醒，无论被什么锁释放都会直接跳到bmi
-	//如果被读锁释放唤醒则bmi 1b会执行重新ldrex
-	//如果被写锁释放唤醒则bmi 1b不会执行，获得锁退出执行临界区代码
-	WFE("mi")				
-"	rsbpls	%0, %1, #0\n"	//如果N==0则%0 = #0 - %1
-"	bmi	1b"					//rsb结果为0说明strex成功，为负数说明不成功继续返回重新ldrex
+"1:	ldrex	%0, [%2]\n"		//tmp = rw->lock
+"	adds	%0, %0, #1\n"	//tmp = tmp + 1; and set the flags;
+"	strexpl	%1, %0, [%2]\n"	//if (N==0) rw->lock = tmp; tmp2 = 0 if ok,1 if failed;
+	WFE("mi")				//if (N==1) sleep;			
+"	rsbpls	%0, %1, #0\n"	//if (N==0) tmp = 0 - tmp2; and set the flags;
+"	bmi	1b"					//if (N==1) goto 1;
 	: "=&r" (tmp), "=&r" (tmp2)
 	: "r" (&rw->lock)
 	: "cc");
@@ -267,15 +273,16 @@ static inline void arch_read_unlock(arch_rwlock_t *rw)
 	smp_mb();
 
 	__asm__ __volatile__(
-"1:	ldrex	%0, [%2]\n"
-"	sub	%0, %0, #1\n"
-"	strex	%1, %0, [%2]\n"
-"	teq	%1, #0\n"
-"	bne	1b"
+"1:	ldrex	%0, [%2]\n"			//tmp = rw->lock
+"	sub	%0, %0, #1\n"			//tmp = tmp - 1
+"	strex	%1, %0, [%2]\n"		//try rw->lock = tmp; tmp2 = 0 if ok,1 if failed;
+"	teq	%1, #0\n"				//test tmp2 ^ 0;
+"	bne	1b"						//if (tmp2 != 0) goto 1;
 	: "=&r" (tmp), "=&r" (tmp2)
 	: "r" (&rw->lock)
 	: "cc");
 
+	/* 如果rw->lock成功减1后为0,说明已经没有任何读者或者写者占用锁了,  则唤醒写者 */
 	if (tmp == 0)
 		dsb_sev();
 }

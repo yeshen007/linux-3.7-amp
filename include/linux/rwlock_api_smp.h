@@ -210,7 +210,7 @@ static inline void __raw_write_lock(rwlock_t *lock)
 {
 	preempt_disable();
 	rwlock_acquire(&lock->dep_map, 0, 0, _RET_IP_);
-	LOCK_CONTENDED(lock, do_raw_write_trylock, do_raw_write_lock);
+	LOCK_CONTENDED(lock, do_raw_write_trylock, do_raw_write_lock);	//
 }
 
 #endif /* CONFIG_PREEMPT */

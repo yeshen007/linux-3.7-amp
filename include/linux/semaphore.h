@@ -14,9 +14,9 @@
 
 /* Please don't access any members of this structure directly */
 struct semaphore {
-	raw_spinlock_t		lock;
-	unsigned int		count;
-	struct list_head	wait_list;
+	raw_spinlock_t		lock;		//访问自身count和wait_list使用的自旋锁
+	unsigned int		count;		//表示允许进入临界区的进程个数
+	struct list_head	wait_list;	//在该信号量上睡眠的进程
 };
 
 #define __SEMAPHORE_INITIALIZER(name, n)				\

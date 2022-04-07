@@ -52,6 +52,7 @@ static inline void atomic_add(int i, atomic_t *v)
 	: "cc");
 }
 
+/* */
 static inline int atomic_add_return(int i, atomic_t *v)
 {
 	unsigned long tmp;
@@ -74,6 +75,7 @@ static inline int atomic_add_return(int i, atomic_t *v)
 	return result;
 }
 
+/* */
 static inline void atomic_sub(int i, atomic_t *v)
 {
 	unsigned long tmp;
@@ -90,6 +92,7 @@ static inline void atomic_sub(int i, atomic_t *v)
 	: "cc");
 }
 
+/* v->counter原子减1并返回减1后的值 */
 static inline int atomic_sub_return(int i, atomic_t *v)
 {
 	unsigned long tmp;
@@ -98,11 +101,11 @@ static inline int atomic_sub_return(int i, atomic_t *v)
 	smp_mb();
 
 	__asm__ __volatile__("@ atomic_sub_return\n"
-"1:	ldrex	%0, [%3]\n"
-"	sub	%0, %0, %4\n"
-"	strex	%1, %0, [%3]\n"
-"	teq	%1, #0\n"
-"	bne	1b"
+"1:	ldrex	%0, [%3]\n"		//result = v->counter;
+"	sub	%0, %0, %4\n"		//result = result - i;
+"	strex	%1, %0, [%3]\n"	//try v->counter = result; tmp = 0 if ok,1 if failed;
+"	teq	%1, #0\n"			//test tmp ^ 0;
+"	bne	1b"					//if (tmp != 0) goto 1;
 	: "=&r" (result), "=&r" (tmp), "+Qo" (v->counter)
 	: "r" (&v->counter), "Ir" (i)
 	: "cc");

@@ -278,7 +278,7 @@ EXPORT_SYMBOL(_raw_write_trylock);
 #ifndef CONFIG_INLINE_WRITE_LOCK
 void __lockfunc _raw_write_lock(rwlock_t *lock)
 {
-	__raw_write_lock(lock);
+	__raw_write_lock(lock);	//
 }
 EXPORT_SYMBOL(_raw_write_lock);
 #endif
