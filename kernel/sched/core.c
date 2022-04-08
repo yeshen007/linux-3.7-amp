@@ -3231,21 +3231,20 @@ EXPORT_SYMBOL(complete_all);
 static inline long __sched
 do_wait_for_common(struct completion *x, long timeout, int state)
 {
-	if (!x->done) {	//done表示当前在completion上的完成者个数
-		DECLARE_WAITQUEUE(wait, current);	//
-
-		__add_wait_queue_tail_exclusive(&x->wait, &wait);
+	if (!x->done) {			//done表示当前在completion上的完成者个数
+		DECLARE_WAITQUEUE(wait, current);	//定义当前进程等待队列节点
+		__add_wait_queue_tail_exclusive(&x->wait, &wait);	//将当前进程加入x的等待队列
 		do {
 			if (signal_pending_state(state, current)) {
 				timeout = -ERESTARTSYS;
 				break;
 			}
 			__set_current_state(state);
-			spin_unlock_irq(&x->wait.lock);	//
-			timeout = schedule_timeout(timeout);
+			spin_unlock_irq(&x->wait.lock);	
+			timeout = schedule_timeout(timeout);	//让出cpu
 			spin_lock_irq(&x->wait.lock);
-		} while (!x->done && timeout);
-		__remove_wait_queue(&x->wait, &wait);	//
+		} while (!x->done && timeout);			//如果还没有完成者并且没超时继续睡眠
+		__remove_wait_queue(&x->wait, &wait);	//醒来后将当前进程移出x的等待队列
 		if (!x->done)
 			return timeout;
 	}
