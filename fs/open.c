@@ -920,7 +920,7 @@ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 		/* 分配一个当前进程的文件描述符 */
 		fd = get_unused_fd_flags(flags);	
 		if (fd >= 0) {
-			/* 查找filename对应的inode，分配设置struct file
+			/* 查找filename对应的inode(如果不存在并且有O_CREATE则创建inode,然后分配设置struct file
              * 对于设备节点文件，会将file->f_OP = inode->i_fop,然后调用file->f_OP->open
              * 因此对应字符设备节点就是chrdev_open
 			 */

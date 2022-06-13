@@ -1744,7 +1744,7 @@ static inline void *__vmalloc_node_flags(unsigned long size,
  *	For tight control over page level allocator and protection flags
  *	use __vmalloc() instead.
  */
-void *vmalloc(unsigned long size)
+void *vmalloc(unsigned long size)		//会分配物理内存,极客时间讲解有误
 {
 	return __vmalloc_node_flags(size, -1, GFP_KERNEL | __GFP_HIGHMEM);
 }

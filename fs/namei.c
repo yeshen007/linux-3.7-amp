@@ -2535,7 +2535,7 @@ static int atomic_open(struct nameidata *nd, struct dentry *dentry,
 	file->f_path.dentry = DENTRY_NOT_SET;
 	file->f_path.mnt = nd->path.mnt;
 	error = dir->i_op->atomic_open(dir, dentry, file, open_flag, mode,
-				      opened);
+				      opened);		/////////
 	if (error < 0) {
 		if (create_error && error == -ENOENT)
 			error = create_error;
@@ -2644,7 +2644,7 @@ static int lookup_open(struct nameidata *nd, struct path *path,
 
 	if ((nd->flags & LOOKUP_OPEN) && dir_inode->i_op->atomic_open) {
 		return atomic_open(nd, dentry, path, file, op, got_write,
-				   need_lookup, opened);
+				   need_lookup, opened);		//
 	}
 
 	if (need_lookup) {
@@ -2678,7 +2678,7 @@ static int lookup_open(struct nameidata *nd, struct path *path,
 		error = vfs_create(dir->d_inode, dentry, mode,
 				   nd->flags & LOOKUP_EXCL);
 		if (error)
-			goto out_dput;
+			goto out_dput; 
 	}
 out_no_open:
 	path->dentry = dentry;
@@ -2742,7 +2742,7 @@ static int do_last(struct nameidata *nd, struct path *path,
 		if (open_flag & O_PATH && !(nd->flags & LOOKUP_FOLLOW))
 			symlink_ok = true;
 		/* we _can_ be in RCU mode here */
-		error = lookup_fast(nd, &nd->last, path, &inode);
+		error = lookup_fast(nd, &nd->last, path, &inode);	//
 		if (likely(!error))
 			goto finish_lookup;
 
@@ -2780,7 +2780,7 @@ retry_lookup:
 		 */
 	}
 	mutex_lock(&dir->d_inode->i_mutex);
-	error = lookup_open(nd, path, file, op, got_write, opened);
+	error = lookup_open(nd, path, file, op, got_write, opened);		//
 	mutex_unlock(&dir->d_inode->i_mutex);
 
 	if (error <= 0) {
@@ -2800,7 +2800,7 @@ retry_lookup:
 		open_flag &= ~O_TRUNC;
 		will_truncate = false;
 		acc_mode = MAY_OPEN;
-		path_to_nameidata(path, nd);
+		path_to_nameidata(path, nd);	/* 将解析后得到的路径dentry设置到nd */
 		goto finish_open_created;
 	}
 
@@ -2950,21 +2950,25 @@ static struct file *path_openat(int dfd, struct filename *pathname,
 	int opened = 0;
 	int error;
 
-	file = get_empty_filp();
+	file = get_empty_filp();	//分配file
 	if (!file)
 		return ERR_PTR(-ENFILE);
 
 	file->f_flags = op->open_flag;
 
+	/* 初始化nameidata */
 	error = path_init(dfd, pathname->name, flags | LOOKUP_PARENT, nd, &base);
 	if (unlikely(error))
 		goto out;
 
 	current->total_link_count = 0;
+
+	/* 解析路径 */
 	error = link_path_walk(pathname->name, nd);
 	if (unlikely(error))
 		goto out;
 
+	/* 找到或创建设置文件对于inode, 设置file,              inode->open*/
 	error = do_last(nd, &path, file, op, &opened, pathname);
 	while (unlikely(error > 0)) { /* trailing symlink */
 		struct path link = path;
@@ -3013,7 +3017,7 @@ struct file *do_filp_open(int dfd, struct filename *pathname,
 	struct nameidata nd;
 	struct file *filp;
 
-	filp = path_openat(dfd, pathname, &nd, op, flags | LOOKUP_RCU);
+	filp = path_openat(dfd, pathname, &nd, op, flags | LOOKUP_RCU);	//
 	if (unlikely(filp == ERR_PTR(-ECHILD)))
 		filp = path_openat(dfd, pathname, &nd, op, flags);
 	if (unlikely(filp == ERR_PTR(-ESTALE)))

@@ -853,7 +853,7 @@ int do_sys_poll(struct pollfd __user *ufds, unsigned int nfds,
 		}
 	}
 
-	poll_initwait(&table);
+	poll_initwait(&table);	//poll_wqueues对象初始化
 	fdcount = do_poll(nfds, head, &table, end_time);
 	poll_freewait(&table);
 

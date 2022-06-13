@@ -64,6 +64,8 @@ EXPORT_SYMBOL(remove_wait_queue);
  * stops them from bleeding out - it would still allow subsequent
  * loads to move into the critical region).
  */
+ //一般传入的state是TASK_INTERRUPTABLE
+ //表示将当前进程设置为睡眠状态并且加入到等待队列
 void
 prepare_to_wait(wait_queue_head_t *q, wait_queue_t *wait, int state)
 {
@@ -101,6 +103,7 @@ EXPORT_SYMBOL(prepare_to_wait_exclusive);
  * the wait descriptor from the given waitqueue if still
  * queued.
  */
+ //和prepare_to_wait相反,将当前进程设置为运行并且脱离等待队列
 void finish_wait(wait_queue_head_t *q, wait_queue_t *wait)
 {
 	unsigned long flags;

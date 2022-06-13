@@ -9,9 +9,10 @@ struct vfsmount;
 
 enum { MAX_NESTED_LINKS = 8 };
 
+//比如/home/yeshen/test.txt
 struct nameidata {
-	struct path	path;
-	struct qstr	last;
+	struct path	path;		//	里面的dentry代表/home/yeshen
+	struct qstr	last;		//	test.txt
 	struct path	root;
 	struct inode	*inode; /* path.dentry.d_inode */
 	unsigned int	flags;
