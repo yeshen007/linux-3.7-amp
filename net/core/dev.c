@@ -4003,7 +4003,7 @@ static void net_rx_action(struct softirq_action *h)
 		if (unlikely(work == weight)) {
 			if (unlikely(napi_disable_pending(n))) {
 				local_irq_enable();
-				napi_complete(n);
+				napi_complete(n);		//state
 				local_irq_disable();
 			} else {
 				if (n->gro_list) {
@@ -6650,7 +6650,7 @@ static struct pernet_operations __net_initdata default_device_ops = {
  *       This is called single threaded during boot, so no need
  *       to take the rtnl semaphore.
  */
-static int __init net_dev_init(void)
+static int __init net_dev_init(void)		//初始化网络子系统
 {
 	int i, rc = -ENOMEM;
 
@@ -6674,13 +6674,13 @@ static int __init net_dev_init(void)
 	 */
 
 	for_each_possible_cpu(i) {
-		struct softnet_data *sd = &per_cpu(softnet_data, i);
+		struct softnet_data *sd = &per_cpu(softnet_data, i);	//282-283行定义
 
 		memset(sd, 0, sizeof(*sd));
-		skb_queue_head_init(&sd->input_pkt_queue);
-		skb_queue_head_init(&sd->process_queue);
+		skb_queue_head_init(&sd->input_pkt_queue);	
+		skb_queue_head_init(&sd->process_queue);	
 		sd->completion_queue = NULL;
-		INIT_LIST_HEAD(&sd->poll_list);
+		INIT_LIST_HEAD(&sd->poll_list);		//
 		sd->output_queue = NULL;
 		sd->output_queue_tailp = &sd->output_queue;
 #ifdef CONFIG_RPS
@@ -6713,8 +6713,8 @@ static int __init net_dev_init(void)
 	if (register_pernet_device(&default_device_ops))
 		goto out;
 
-	open_softirq(NET_TX_SOFTIRQ, net_tx_action);
-	open_softirq(NET_RX_SOFTIRQ, net_rx_action);
+	open_softirq(NET_TX_SOFTIRQ, net_tx_action);		//注册NET_TX_SOFTIRQ软中断函数net_tx_action
+	open_softirq(NET_RX_SOFTIRQ, net_rx_action);		//注册NET_RX_SOFTIRQ软中断函数net_rx_action
 
 	hotcpu_notifier(dev_cpu_callback, 0);
 	dst_init();

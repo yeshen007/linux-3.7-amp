@@ -1668,7 +1668,7 @@ static struct packet_type ip_packet_type __read_mostly = {
 	.gro_complete = inet_gro_complete,
 };
 
-static int __init inet_init(void)
+static int __init inet_init(void)		//注册协议栈
 {
 	struct sk_buff *dummy_skb;
 	struct inet_protosw *q;
@@ -1681,7 +1681,7 @@ static int __init inet_init(void)
 	if (!sysctl_local_reserved_ports)
 		goto out;
 
-	rc = proto_register(&tcp_prot, 1);
+	rc = proto_register(&tcp_prot, 1);		//
 	if (rc)
 		goto out_free_reserved_ports;
 
@@ -1715,9 +1715,9 @@ static int __init inet_init(void)
 
 	if (inet_add_protocol(&icmp_protocol, IPPROTO_ICMP) < 0)
 		pr_crit("%s: Cannot add ICMP protocol\n", __func__);
-	if (inet_add_protocol(&udp_protocol, IPPROTO_UDP) < 0)
+	if (inet_add_protocol(&udp_protocol, IPPROTO_UDP) < 0)		//
 		pr_crit("%s: Cannot add UDP protocol\n", __func__);
-	if (inet_add_protocol(&tcp_protocol, IPPROTO_TCP) < 0)
+	if (inet_add_protocol(&tcp_protocol, IPPROTO_TCP) < 0)		//
 		pr_crit("%s: Cannot add TCP protocol\n", __func__);
 #ifdef CONFIG_IP_MULTICAST
 	if (inet_add_protocol(&igmp_protocol, IPPROTO_IGMP) < 0)
@@ -1781,7 +1781,7 @@ static int __init inet_init(void)
 
 	ipfrag_init();
 
-	dev_add_pack(&ip_packet_type);
+	dev_add_pack(&ip_packet_type);		//
 
 	rc = 0;
 out:

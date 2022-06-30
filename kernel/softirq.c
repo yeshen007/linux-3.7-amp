@@ -848,11 +848,12 @@ static struct notifier_block __cpuinitdata cpu_nfb = {
 
 static struct smp_hotplug_thread softirq_threads = {
 	.store			= &ksoftirqd,
-	.thread_should_run	= ksoftirqd_should_run,
-	.thread_fn		= run_ksoftirqd,
+	.thread_should_run	= ksoftirqd_should_run,	//判断条件
+	.thread_fn		= run_ksoftirqd,			//真正跑的是这个
 	.thread_comm		= "ksoftirqd/%u",
 };
 
+/* 为每个cpu创建一个处理软中断的线程 */
 static __init int spawn_ksoftirqd(void)
 {
 	register_cpu_notifier(&cpu_nfb);

@@ -575,6 +575,7 @@ static struct block_device *bd_acquire(struct inode *inode)
 {
 	struct block_device *bdev;
 
+	/* 如果设备已经使用过,block_device可以直接从inode->i_bdev得到 */
 	spin_lock(&bdev_lock);
 	bdev = inode->i_bdev;
 	if (bdev) {
@@ -584,6 +585,7 @@ static struct block_device *bd_acquire(struct inode *inode)
 	}
 	spin_unlock(&bdev_lock);
 
+	/* 如果block_device没有则创建一个 */
 	bdev = bdget(inode->i_rdev);
 	if (bdev) {
 		spin_lock(&bdev_lock);
@@ -1078,7 +1080,7 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
  restart:
 
 	ret = -ENXIO;
-	disk = get_gendisk(bdev->bd_dev, &partno);
+	disk = get_gendisk(bdev->bd_dev, &partno);		//
 	if (!disk)
 		goto out;
 	owner = disk->fops->owner;
@@ -1395,7 +1397,7 @@ static int blkdev_open(struct inode * inode, struct file * filp)
 
 	filp->f_mapping = bdev->bd_inode->i_mapping;
 
-	return blkdev_get(bdev, filp->f_mode, filp);
+	return blkdev_get(bdev, filp->f_mode, filp);		//老版本的do_open
 }
 
 static int __blkdev_put(struct block_device *bdev, fmode_t mode, int for_part)
