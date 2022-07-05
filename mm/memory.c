@@ -3464,9 +3464,9 @@ int handle_pte_fault(struct mm_struct *mm,
 		 * arm pte不一定不为空),说明还没映射物理内存
 		 */
 		if (pte_none(entry)) {
-			/* 文件映射时缺页异常 */
 			if (vma->vm_ops) {
 				if (likely(vma->vm_ops->fault))
+					/* 线性文件映射缺页异常 */
 					return do_linear_fault(mm, vma, address,
 						pte, pmd, flags, entry);
 			}
@@ -3474,7 +3474,7 @@ int handle_pte_fault(struct mm_struct *mm,
 			return do_anonymous_page(mm, vma, address,
 						 pte, pmd, flags);
 		}
-		
+		/* 非线性文件映射缺页异常 */
 		if (pte_file(entry))
 			return do_nonlinear_fault(mm, vma, address,
 					pte, pmd, flags, entry);
